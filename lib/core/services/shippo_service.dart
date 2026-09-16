@@ -6,7 +6,7 @@ import '../constants/shippo_key.dart';
 
 class AdminShippoService {
   static const String baseUrl = 'https://api.goshippo.com';
-  static const String apiToken = shippoTestKey;
+  static const String apiToken = shippoLiveKey;
 
   final headers = {
     'Authorization': 'ShippoToken $apiToken',

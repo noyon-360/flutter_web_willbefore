@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_willbefore/core/common/widgets/app_logo.dart';
 import 'package:flutter_web_willbefore/core/routes/route_endpoint.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../models/dashboard_models.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -26,6 +27,35 @@ class Sidebar extends ConsumerWidget {
         children: [
           // Logo Section
           Container(padding: const EdgeInsets.all(24), child: AppLogo()),
+
+          /// [Version] Show the update version
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Text(
+                    'Version unavailable',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  );
+                }
+
+                if (!snapshot.hasData) {
+                  return const Text(
+                    'Loading version...',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  );
+                }
+
+                final packageInfo = snapshot.data!;
+                return Text(
+                  'Version ${packageInfo.version}+${packageInfo.buildNumber}',
+                  style: const TextStyle(color: Colors.black, fontSize: 12),
+                );
+              },
+            ),
+          ),
 
           // Navigation Items
           Expanded(
