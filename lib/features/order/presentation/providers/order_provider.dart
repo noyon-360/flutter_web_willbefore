@@ -141,6 +141,73 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
     }
   }
 
+  Future<bool> updateShippingAddress(
+    String orderId,
+    ShippingAddress shippingAddress,
+  ) async {
+    state = state.copyWith(isUpdating: true, errorMessage: null);
+    try {
+      await _orderRepository.updateShippingAddress(orderId, shippingAddress);
+
+      final updatedOrders = state.orders.map((order) {
+        if (order.id == orderId) {
+          return order.copyWith(shippingAddress: shippingAddress);
+        }
+        return order;
+      }).toList();
+
+      state = state.copyWith(orders: updatedOrders, isUpdating: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isUpdating: false, errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  // Clears a previously purchased label/tracking info so the order can be
+  // re-fulfilled with a corrected address or a different rate tier.
+  // Voiding the Shippo transaction itself is done separately via
+  // AdminShippoService.refundLabel before calling this.
+  Future<bool> resetFulfillment(String orderId) async {
+    state = state.copyWith(isUpdating: true, errorMessage: null);
+    try {
+      await _orderRepository.resetFulfillment(orderId);
+
+      // Order.copyWith treats null args as "keep existing value", so the
+      // fields being cleared must be rebuilt explicitly instead.
+      final updatedOrders = state.orders.map((o) {
+        if (o.id == orderId) {
+          return Order(
+            id: o.id,
+            userId: o.userId,
+            items: o.items,
+            shippingAddress: o.shippingAddress,
+            subtotal: o.subtotal,
+            tax: o.tax,
+            total: o.total,
+            status: OrderStatus.confirmed,
+            paymentIntentId: o.paymentIntentId,
+            createdAt: o.createdAt,
+            updatedAt: DateTime.now(),
+            estimatedDelivery: o.estimatedDelivery,
+            trackingNumber: null,
+            trackingUrl: null,
+            shippoTransactionId: null,
+            labelUrl: null,
+            shippedAt: null,
+          );
+        }
+        return o;
+      }).toList();
+
+      state = state.copyWith(orders: updatedOrders, isUpdating: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isUpdating: false, errorMessage: e.toString());
+      return false;
+    }
+  }
+
   // Future<bool> refundOrder(String paymentIntentId, {int? amountInCents}) async {
   //   try {
   //     final result = await FirebaseFunctions.instance

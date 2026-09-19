@@ -19,6 +19,11 @@ abstract class OrderRemoteDataSource {
     required String labelUrl,
     required String shippoTransactionId,
   });
+  Future<void> updateShippingAddress(
+    String orderId,
+    ShippingAddress shippingAddress,
+  );
+  Future<void> resetFulfillment(String orderId);
   Future<Order?> getOrderById(String orderId);
 }
 
@@ -195,6 +200,82 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       await batch.commit();
     } catch (e) {
       throw Exception('Failed to fulfill order: $e');
+    }
+  }
+
+  @override
+  Future<void> updateShippingAddress(
+    String orderId,
+    ShippingAddress shippingAddress,
+  ) async {
+    try {
+      final addressMap = ShippingAddressModel.fromEntity(
+        shippingAddress,
+      ).toMap();
+      final batch = _firestore.batch();
+      final mainOrderRef = _firestore.collection('orders').doc(orderId);
+
+      batch.update(mainOrderRef, {
+        'shippingAddress': addressMap,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      final orderDoc = await mainOrderRef.get();
+      if (orderDoc.exists) {
+        final userId = orderDoc.data()?['userId'];
+        if (userId != null) {
+          final userOrderRef = _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('orders')
+              .doc(orderId);
+          batch.update(userOrderRef, {
+            'shippingAddress': addressMap,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to update shipping address: $e');
+    }
+  }
+
+  @override
+  Future<void> resetFulfillment(String orderId) async {
+    try {
+      final batch = _firestore.batch();
+      final mainOrderRef = _firestore.collection('orders').doc(orderId);
+
+      final updateData = {
+        'status': OrderStatus.confirmed.name,
+        'trackingNumber': FieldValue.delete(),
+        'trackingUrl': FieldValue.delete(),
+        'labelUrl': FieldValue.delete(),
+        'shippoTransactionId': FieldValue.delete(),
+        'shippedAt': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      batch.update(mainOrderRef, updateData);
+
+      final orderDoc = await mainOrderRef.get();
+      if (orderDoc.exists) {
+        final userId = orderDoc.data()?['userId'];
+        if (userId != null) {
+          final userOrderRef = _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('orders')
+              .doc(orderId);
+          batch.update(userOrderRef, updateData);
+        }
+      }
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to reset fulfillment: $e');
     }
   }
 

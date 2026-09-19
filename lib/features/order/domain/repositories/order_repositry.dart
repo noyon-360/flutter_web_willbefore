@@ -19,5 +19,10 @@ abstract class OrderRepository {
     required String labelUrl,
     required String shippoTransactionId,
   });
+  Future<void> updateShippingAddress(
+    String orderId,
+    ShippingAddress shippingAddress,
+  );
+  Future<void> resetFulfillment(String orderId);
   Future<Order?> getOrderById(String orderId);
 }

@@ -27,6 +27,7 @@ class FullfillOrderScreen extends ConsumerStatefulWidget {
 
 class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
   bool _isLoading = false;
+  bool _isVoiding = false;
   String? _trackingNumber;
   String? _labelUrl;
   String? _trackingUrl;
@@ -43,6 +44,23 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
   String _distanceUnit = 'in';
   String _massUnit = 'oz';
 
+  // Address edit inputs
+  bool _isEditingAddress = false;
+  late TextEditingController _nameController;
+  late TextEditingController _phoneController;
+  late TextEditingController _emailController;
+  late TextEditingController _address1Controller;
+  late TextEditingController _address2Controller;
+  late TextEditingController _cityController;
+  late TextEditingController _stateController;
+  late TextEditingController _zipController;
+  late TextEditingController _countryController;
+
+  // Rate selection
+  List<Map<String, dynamic>>? _rates;
+  Map<String, dynamic>? _selectedRate;
+  bool _isFetchingRates = false;
+
   Order? _order;
   bool _initialized = false;
 
@@ -53,6 +71,16 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
     _widthController = TextEditingController(text: '6');
     _heightController = TextEditingController(text: '4');
     _weightController = TextEditingController(text: '8.0');
+
+    _nameController = TextEditingController();
+    _phoneController = TextEditingController();
+    _emailController = TextEditingController();
+    _address1Controller = TextEditingController();
+    _address2Controller = TextEditingController();
+    _cityController = TextEditingController();
+    _stateController = TextEditingController();
+    _zipController = TextEditingController();
+    _countryController = TextEditingController();
 
     // Initial attempt to find order
     final adminState = ref.read(adminOrderProvider);
@@ -77,7 +105,27 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
     final initialWeight = totalWeightOz > 0 ? totalWeightOz : 8.0;
     _weightController.text = initialWeight.toString();
 
+    _resetAddressControllersFromOrder();
+
+    // Pre-populate existing fulfillment info, if any.
+    _trackingNumber = _order!.trackingNumber;
+    _labelUrl = _order!.labelUrl;
+    _trackingUrl = _order!.trackingUrl;
+
     _initialized = true;
+  }
+
+  void _resetAddressControllersFromOrder() {
+    final addr = _order!.shippingAddress;
+    _nameController.text = addr.fullName;
+    _phoneController.text = addr.phoneNumber;
+    _emailController.text = addr.email;
+    _address1Controller.text = addr.addressLine1;
+    _address2Controller.text = addr.addressLine2;
+    _cityController.text = addr.city;
+    _stateController.text = addr.state;
+    _zipController.text = addr.postalCode;
+    _countryController.text = addr.country;
   }
 
   @override
@@ -86,7 +134,64 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
     _widthController.dispose();
     _heightController.dispose();
     _weightController.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _address1Controller.dispose();
+    _address2Controller.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _zipController.dispose();
+    _countryController.dispose();
     super.dispose();
+  }
+
+  // --------------------------------------------------------------
+  //  Address editing
+  // --------------------------------------------------------------
+  Future<void> _saveAddress() async {
+    final updated = ShippingAddress(
+      fullName: _nameController.text.trim(),
+      phoneNumber: _phoneController.text.trim(),
+      email: _emailController.text.trim(),
+      addressLine1: _address1Controller.text.trim(),
+      addressLine2: _address2Controller.text.trim(),
+      city: _cityController.text.trim(),
+      state: _stateController.text.trim(),
+      postalCode: _zipController.text.trim(),
+      country: _countryController.text.trim(),
+    );
+
+    setState(() => _isLoading = true);
+    final success = await ref
+        .read(adminOrderProvider.notifier)
+        .updateShippingAddress(_order!.id, updated);
+    if (!mounted) return;
+
+    if (success) {
+      setState(() {
+        _order = _order!.copyWith(shippingAddress: updated);
+        _isEditingAddress = false;
+        _isLoading = false;
+        // Address changed — any previously fetched rates are stale.
+        _rates = null;
+        _selectedRate = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Shipping address updated'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to update shipping address'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // --------------------------------------------------------------
@@ -108,19 +213,20 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
   }
 
   // --------------------------------------------------------------
-  //  Generate label
+  //  Fetch rates (creates addresses/parcel/shipment, does NOT buy)
   // --------------------------------------------------------------
-  Future<void> _generateLabel() async {
+  Future<void> _fetchRates() async {
     setState(() {
-      _isLoading = true;
+      _isFetchingRates = true;
       _error = null;
+      _rates = null;
+      _selectedRate = null;
     });
 
     try {
       // ---- 1. Warehouse address -------------------------------------------------
       final warehouseState = ref.read(warehouseProvider);
       if (warehouseState.address == null) {
-        // If not loaded yet, trigger load and wait
         final provider = ref.read(warehouseProvider.notifier);
         provider.refresh();
         if (ref.read(warehouseProvider).address == null) {
@@ -132,7 +238,6 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
       final warehouse = ref.read(warehouseProvider).address!;
       final bool isWarehouseUS = warehouse.country?.toUpperCase() == 'US';
 
-      // Validate warehouse has email and phone — required by carriers at label purchase
       if (warehouse.email == null || warehouse.email!.trim().isEmpty) {
         throw Exception(
           'Warehouse email is missing. Please add it in Admin → Settings → Warehouse Address.',
@@ -157,26 +262,10 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         isResidential: warehouse.isResidential,
       );
 
-      DPrint.log('FROM Address: $fromAddr');
       if (!_isValidAddress(fromAddr, isUS: isWarehouseUS)) {
-        String msg;
-        try {
-          // Attempt to extract friendly messages
-          final messages = fromAddr['messages'] as List?;
-          if (messages != null && messages.isNotEmpty) {
-            msg = messages
-                .map(
-                  (m) => m is Map ? (m['text'] ?? m.toString()) : m.toString(),
-                )
-                .join(', ');
-          } else {
-            // If no messages but invalid, dump full JSON
-            msg = 'Full Response: ${jsonEncode(fromAddr)}';
-          }
-        } catch (_) {
-          msg = 'Response: $fromAddr';
-        }
-        throw Exception('Warehouse address invalid: $msg');
+        throw Exception(
+          'Warehouse address invalid: ${_extractShippoMessage(fromAddr)}',
+        );
       }
 
       // ---- 3. TO address ---------------------------------------------------------
@@ -194,27 +283,13 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
       final bool isCustomerUS =
           _order!.shippingAddress.country.toUpperCase() == 'US';
       if (!_isValidAddress(toAddr, isUS: isCustomerUS)) {
-        String msg;
-        try {
-          final messages = toAddr['messages'] as List?;
-          if (messages != null && messages.isNotEmpty) {
-            msg = messages
-                .map(
-                  (m) => m is Map ? (m['text'] ?? m.toString()) : m.toString(),
-                )
-                .join(', ');
-          } else {
-            msg = 'Full Response: ${jsonEncode(toAddr)}';
-          }
-        } catch (_) {
-          msg = 'Response: $toAddr';
-        }
-        throw Exception('Customer address invalid: $msg');
+        throw Exception(
+          'Customer address invalid: ${_extractShippoMessage(toAddr)}. '
+          'Use "Edit Address" above to correct it, then try again.',
+        );
       }
 
       // ---- 4. Parcel -------------------------------------------------------------
-      // ---- 4. Parcel -------------------------------------------------------------
-      // Get values from controllers
       final length = double.tryParse(_lengthController.text);
       final width = double.tryParse(_widthController.text);
       final height = double.tryParse(_heightController.text);
@@ -234,7 +309,6 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         weight: weight,
         massUnit: _massUnit,
       );
-      // Removed null check as createParcel throws on error
 
       // ---- 4.5 Customs Declaration (International) -------------------------------
       String? customsDeclarationId;
@@ -244,7 +318,7 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         final List<String> customsItemIds = [];
         for (final item in _order!.items) {
           final itemId = await _shippo.createCustomsItem(
-            description: item.product.title, // using title from Product entity
+            description: item.product.title,
             quantity: item.quantity.toDouble(),
             netWeight: item.product.weightOz > 0 ? item.product.weightOz : 1.0,
             massUnit: 'oz',
@@ -269,49 +343,72 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         parcelIds: [parcelId],
         customsDeclarationId: customsDeclarationId,
       );
-      // Removed null check as createShipment throws on error
 
-      // ---- 6. Rate selection -----------------------------------------------------
-      final rates = shipment['rates'] as List;
-      if (rates.isEmpty) {
+      // ---- 6. Rates ---------------------------------------------------------------
+      final rawRates = (shipment['rates'] as List).cast<Map<String, dynamic>>();
+      if (rawRates.isEmpty) {
         throw Exception('No shipping rates returned by Shippo');
       }
 
-      // reused isDomesticUS from above
+      final rates = List<Map<String, dynamic>>.from(rawRates)
+        ..sort(
+          (a, b) => double.parse(a['amount']).compareTo(double.parse(b['amount'])),
+        );
 
-      Map<String, dynamic> selectedRate;
-
+      // Default pre-selection mirrors the old automatic behavior (cheapest
+      // USPS domestically, cheapest overall internationally) but admins can
+      // now pick a higher tier — e.g. to upgrade a customer for free — or
+      // any other carrier, before a label is purchased.
+      Map<String, dynamic> defaultRate;
       if (isDomesticUS) {
         final uspsRates = rates
-            .where(
-              (r) => (r['provider'] as String).toUpperCase().contains('USPS'),
-            )
+            .where((r) => (r['provider'] as String).toUpperCase().contains('USPS'))
             .toList();
-
-        if (uspsRates.isEmpty) {
-          throw Exception('No USPS rates for domestic shipment');
-        }
-
-        selectedRate = uspsRates.reduce(
-          (a, b) =>
-              double.parse(a['amount']) < double.parse(b['amount']) ? a : b,
-        );
+        defaultRate = uspsRates.isNotEmpty ? uspsRates.first : rates.first;
       } else {
-        // International / non-US → cheapest overall
-        selectedRate = rates.reduce(
-          (a, b) =>
-              double.parse(a['amount']) < double.parse(b['amount']) ? a : b,
-        );
+        defaultRate = rates.first;
       }
 
-      DPrint.log(
-        'Selected Rate: ${selectedRate['provider']} – \$${selectedRate['amount']}',
-      );
+      setState(() {
+        _rates = rates;
+        _selectedRate = defaultRate;
+      });
+    } catch (e) {
+      setState(() => _error = _getFriendlyErrorMessage(e));
+      DPrint.error('Fetch Rates Error: $e');
+    } finally {
+      if (mounted) setState(() => _isFetchingRates = false);
+    }
+  }
 
-      // ---- 7. Buy label ---------------------------------------------------------
-      final transaction = await _shippo.buyLabel(selectedRate['object_id']);
+  String _extractShippoMessage(Map<String, dynamic> addr) {
+    try {
+      final messages = addr['messages'] as List?;
+      if (messages != null && messages.isNotEmpty) {
+        return messages
+            .map((m) => m is Map ? (m['text'] ?? m.toString()) : m.toString())
+            .join(', ');
+      }
+      return 'Full Response: ${jsonEncode(addr)}';
+    } catch (_) {
+      return 'Response: $addr';
+    }
+  }
 
-      // Check for Shippo/Carrier API errors (e.g. invalid address/phone)
+  // --------------------------------------------------------------
+  //  Buy the selected label
+  // --------------------------------------------------------------
+  Future<void> _buyLabel() async {
+    if (_selectedRate == null) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final transaction = await _shippo.buyLabel(_selectedRate!['object_id']);
+
       if (transaction['status'] != 'SUCCESS') {
         String msg = 'Label purchase failed';
         if (transaction['messages'] != null) {
@@ -321,7 +418,6 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         throw Exception(msg);
       }
 
-      // Ensure tracking number exists
       final trackingRaw = transaction['tracking_number']?.toString();
       if (trackingRaw == null || trackingRaw.isEmpty) {
         throw Exception(
@@ -329,7 +425,6 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         );
       }
 
-      // ---- 8. Update order -------------------------------------------------------
       final success = await ref
           .read(adminOrderProvider.notifier)
           .fulfillOrder(
@@ -341,7 +436,6 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
           );
       if (!success) throw Exception('Failed to update order in database');
 
-      // ---- 9. UI success ---------------------------------------------------------
       setState(() {
         final tracking = transaction['tracking_number']?.toString();
         _trackingNumber = (tracking != null && tracking.isNotEmpty)
@@ -351,7 +445,6 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         _trackingUrl = transaction['tracking_url_provider'];
       });
 
-      // ---- 10. Send Notification --------------------------------------------------
       await sendShipmentNotification(
         orderId: _order!.id,
         userId: _order!.userId,
@@ -370,9 +463,79 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
       }
     } catch (e) {
       setState(() => _error = _getFriendlyErrorMessage(e));
-      DPrint.error('Fulfill Error: $e');
+      DPrint.error('Buy Label Error: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // --------------------------------------------------------------
+  //  Void the current label so a corrected one can be generated
+  // --------------------------------------------------------------
+  Future<void> _voidLabelAndStartOver() async {
+    final transactionId = _order!.shippoTransactionId;
+    if (transactionId == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Void this label?'),
+        content: const Text(
+          'This will request a refund for the purchased label from the '
+          'carrier and clear the tracking info on this order, so you can '
+          'fix the address or pick a different shipping tier and generate '
+          'a new label. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Void Label'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() {
+      _isVoiding = true;
+      _error = null;
+    });
+
+    try {
+      await _shippo.refundLabel(transactionId);
+
+      final success = await ref
+          .read(adminOrderProvider.notifier)
+          .resetFulfillment(_order!.id);
+      if (!success) throw Exception('Failed to reset order fulfillment');
+
+      if (!mounted) return;
+      setState(() {
+        _order = _order!.copyWith(status: OrderStatus.confirmed);
+        _labelUrl = null;
+        _trackingNumber = null;
+        _trackingUrl = null;
+        _rates = null;
+        _selectedRate = null;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Label voided. Refund may take a few days to process with the carrier.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } catch (e) {
+      setState(() => _error = _getFriendlyErrorMessage(e));
+      DPrint.error('Void Label Error: $e');
+    } finally {
+      if (mounted) setState(() => _isVoiding = false);
     }
   }
 
@@ -464,25 +627,27 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSummaryCard(),
             const SizedBox(height: 24),
+
             // Parcel Details Input
             if (_labelUrl == null) ...[
               _buildParcelDetailsCard(),
               const SizedBox(height: 24),
             ],
 
-            // Generate button
-            if (_labelUrl == null)
+            if (_labelUrl == null && _rates == null)
               Center(
                 child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _generateLabel,
-                  icon: _isLoading
+                  onPressed: _isFetchingRates || _isEditingAddress
+                      ? null
+                      : _fetchRates,
+                  icon: _isFetchingRates
                       ? const SizedBox(
                           width: 16,
                           height: 16,
@@ -491,14 +656,9 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(
-                          Icons.local_shipping,
-                          color: AppColors.white,
-                        ),
+                      : const Icon(Icons.local_shipping, color: AppColors.white),
                   label: Text(
-                    _isLoading
-                        ? 'Generating Label...'
-                        : 'Generate Shipping Label',
+                    _isFetchingRates ? 'Fetching Rates...' : 'Get Shipping Rates',
                     style: const TextStyle(color: AppColors.white),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -511,25 +671,90 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
                 ),
               ),
 
+            if (_labelUrl == null && _rates != null) ...[
+              _buildRateSelectionCard(),
+              const SizedBox(height: 16),
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () => setState(() {
+                              _rates = null;
+                              _selectedRate = null;
+                            }),
+                      child: const Text('Back'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: _isLoading || _selectedRate == null
+                          ? null
+                          : _buyLabel,
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.print, color: AppColors.white),
+                      label: Text(
+                        _isLoading ? 'Purchasing...' : 'Buy Selected Label',
+                        style: const TextStyle(color: AppColors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryLaurel,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             if (_labelUrl != null) ...[
               _buildSuccessCard(),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 12,
                 children: [
                   ElevatedButton.icon(
                     onPressed: () => launchUrl(Uri.parse(_labelUrl!)),
                     icon: const Icon(Icons.print),
                     label: const Text('Print Label'),
                   ),
-                  if (_trackingUrl != null && _trackingUrl!.isNotEmpty) ...[
-                    const SizedBox(width: 12),
+                  if (_trackingUrl != null && _trackingUrl!.isNotEmpty)
                     OutlinedButton.icon(
                       onPressed: () => launchUrl(Uri.parse(_trackingUrl!)),
                       icon: const Icon(Icons.location_on),
                       label: const Text('Track Package'),
                     ),
-                  ],
+                  OutlinedButton.icon(
+                    onPressed: _isVoiding ? null : _voidLabelAndStartOver,
+                    icon: _isVoiding
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.undo, color: Colors.red),
+                    label: Text(
+                      _isVoiding ? 'Voiding...' : 'Void Label & Start Over',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.red),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -595,17 +820,175 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Shipping To',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Shipping To',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              // Address can only be corrected before a label is purchased —
+              // once bought, it must be voided first (Shippo labels are
+              // immutable).
+              if (_labelUrl == null)
+                TextButton.icon(
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          setState(() {
+                            if (_isEditingAddress) {
+                              _resetAddressControllersFromOrder();
+                            }
+                            _isEditingAddress = !_isEditingAddress;
+                          });
+                        },
+                  icon: Icon(_isEditingAddress ? Icons.close : Icons.edit),
+                  label: Text(_isEditingAddress ? 'Cancel' : 'Edit Address'),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
-          Text(_order!.shippingAddress.fullName),
-          Text(_order!.shippingAddress.addressLine1),
-          Text(
-            '${_order!.shippingAddress.city}, ${_order!.shippingAddress.state} ${_order!.shippingAddress.postalCode}',
+          if (_isEditingAddress)
+            _buildAddressEditForm()
+          else ...[
+            Text(_order!.shippingAddress.fullName),
+            Text(_order!.shippingAddress.addressLine1),
+            if (_order!.shippingAddress.addressLine2.isNotEmpty)
+              Text(_order!.shippingAddress.addressLine2),
+            Text(
+              '${_order!.shippingAddress.city}, ${_order!.shippingAddress.state} ${_order!.shippingAddress.postalCode}',
+            ),
+            Text(_order!.shippingAddress.country),
+            if (_order!.shippingAddress.phoneNumber.isNotEmpty)
+              Text(_order!.shippingAddress.phoneNumber),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressEditForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTextField(controller: _nameController, label: 'Full Name'),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField(controller: _phoneController, label: 'Phone'),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildTextField(controller: _emailController, label: 'Email'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _buildTextField(controller: _address1Controller, label: 'Address Line 1'),
+        const SizedBox(height: 8),
+        _buildTextField(
+          controller: _address2Controller,
+          label: 'Address Line 2 (optional)',
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField(controller: _cityController, label: 'City'),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildTextField(controller: _stateController, label: 'State'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField(controller: _zipController, label: 'Postal Code'),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildTextField(
+                controller: _countryController,
+                label: 'Country (e.g. US)',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _saveAddress,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryLaurel,
+            ),
+            child: Text(
+              _isLoading ? 'Saving...' : 'Save Address',
+              style: const TextStyle(color: AppColors.white),
+            ),
           ),
-          Text(_order!.shippingAddress.country),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRateSelectionCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Select Shipping Tier',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Pick any carrier/tier — e.g. upgrade the customer to a faster '
+            'tier at no extra charge to them.',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 12),
+          ...(_rates ?? []).map((rate) {
+            final id = rate['object_id'];
+            final provider = rate['provider']?.toString() ?? 'Unknown';
+            final service =
+                (rate['servicelevel'] is Map
+                    ? rate['servicelevel']['name']
+                    : null)?.toString() ??
+                '';
+            final amount = rate['amount']?.toString() ?? '0';
+            final currency = rate['currency']?.toString() ?? 'USD';
+            final days = rate['estimated_days'];
+            final isSelected = _selectedRate?['object_id'] == id;
+
+            return RadioListTile<String>(
+              value: id,
+              groupValue: _selectedRate?['object_id'],
+              onChanged: _isLoading
+                  ? null
+                  : (_) => setState(() => _selectedRate = rate),
+              selected: isSelected,
+              dense: true,
+              title: Text('$provider — $service'),
+              subtitle: days != null ? Text('Est. $days day(s)') : null,
+              secondary: Text(
+                '\$$amount $currency',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -748,17 +1131,11 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
   }) {
     return TextFormField(
       controller: controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
         isDense: true,
       ),
-      validator: (value) {
-        if (value == null || value.isEmpty) return 'Required';
-        if (double.tryParse(value) == null) return 'Invalid';
-        return null;
-      },
     );
   }
 }

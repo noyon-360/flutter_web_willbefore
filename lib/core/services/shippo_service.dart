@@ -218,4 +218,27 @@ class AdminShippoService {
       rethrow;
     }
   }
+
+  // Void/refund a previously purchased label so a corrected one can be bought.
+  // Shippo labels are immutable once purchased, so a correction is a
+  // refund request against the original transaction, not an edit.
+  Future<Map<String, dynamic>> refundLabel(String transactionId) async {
+    final url = Uri.parse('$baseUrl/refunds/');
+    final body = jsonEncode({'transaction': transactionId});
+
+    try {
+      final res = await http.post(url, headers: headers, body: body);
+      if (res.statusCode == 201) {
+        final data = jsonDecode(res.body);
+        DPrint.log('Refund requested: $data');
+        return data;
+      } else {
+        DPrint.error('Refund Error: ${res.body}');
+        throw Exception('Refund Error: ${res.body}');
+      }
+    } catch (e) {
+      DPrint.error('Refund Exception: $e');
+      rethrow;
+    }
+  }
 }

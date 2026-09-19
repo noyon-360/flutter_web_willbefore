@@ -101,6 +101,19 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
+  Future<void> updateShippingAddress(
+    String orderId,
+    ShippingAddress shippingAddress,
+  ) async {
+    await _remoteDataSource.updateShippingAddress(orderId, shippingAddress);
+  }
+
+  @override
+  Future<void> resetFulfillment(String orderId) async {
+    await _remoteDataSource.resetFulfillment(orderId);
+  }
+
+  @override
   Future<Order?> getOrderById(String orderId) async {
     return await _remoteDataSource.getOrderById(orderId);
   }
