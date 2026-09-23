@@ -45,6 +45,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final data = LoginRequest(
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
+      rememberMe: _rememberMe.value,
     );
 
     final resutl = await ref.read(authProvider.notifier).login(data);

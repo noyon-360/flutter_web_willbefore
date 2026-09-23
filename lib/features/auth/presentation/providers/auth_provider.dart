@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_web_willbefore/core/base/base_state.dart';
 import 'package:flutter_web_willbefore/features/auth/data/repos/auth_repository_impl.dart';
@@ -60,17 +59,21 @@ class AuthProvider extends StateNotifier<AuthState> {
 
   Future<void> _initializeAuthState() async {
     try {
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser != null) {
-        final role = await _authRepository.getUserRole(currentUser.uid);
+      // On web, Firebase restores a persisted session from IndexedDB
+      // asynchronously, so `FirebaseAuth.instance.currentUser` can still be
+      // null right after startup even when a valid session exists. Waiting
+      // for the first `authStateChanges` event avoids bouncing an already
+      // logged-in user to the login screen on every page load.
+      final user = await _authRepository.authStateChanges.first;
+      if (user != null) {
+        final role = await _authRepository.getUserRole(user.uid);
         if (role != 'admin') {
           await _authRepository.logout();
           state = state.copyWith(isAuthenticated: false, isInitialized: true);
           return;
         }
-        final userModel = UserModel.fromFirebase(currentUser);
         state = state.copyWith(
-          user: userModel,
+          user: user,
           isAuthenticated: true,
           isInitialized: true,
         );
