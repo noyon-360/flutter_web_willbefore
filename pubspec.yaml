@@ -75,15 +75,10 @@ dependencies:
   flutter_html: ^3.0.0
   path_provider: ^2.1.5
   http: ^1.5.0
-  flutter_stripe: ^12.4.0
   csv: ^6.0.0
-  flutter_stripe_web: ^7.0.0
   url_launcher: ^6.3.2
   flutter_markdown: ^0.7.7+1
   dio: ^5.9.2
-
-# dependency_overrides:
-#   stripe_platform_interface: 12.3.0
 
 dev_dependencies:
   flutter_test:
@@ -111,7 +106,6 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
-    - assets/config/
     - assets/fonts/
 
   # An image asset can refer to one or more resolution-specific "variants", see

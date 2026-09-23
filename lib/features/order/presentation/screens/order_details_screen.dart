@@ -1,9 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart' show FirebaseFirestore;
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_willbefore/core/constants/app_colors.dart';
-import 'package:flutx_core/flutx_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -83,63 +80,28 @@ class OrderDetailsScreen extends ConsumerWidget {
     Order currentOrder,
   ) {
     final bool canFulfill = currentOrder.status == OrderStatus.confirmed;
-    final bool canRefund = [
-      OrderStatus.pending,
-      OrderStatus.cancelled,
-    ].contains(currentOrder.status);
 
-    DPrint.log('Order Status: $canRefund');
-
-    if (!canFulfill && !canRefund) return const SizedBox.shrink();
+    if (!canFulfill) return const SizedBox.shrink();
 
     return Column(
       children: [
         // === Fulfill Order Button ===
-        if (canFulfill)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  context.goNamed(
-                    RouteEndpoint.fullfillOrder.split('/').first,
-                    pathParameters: {'id': currentOrder.id},
-                    extra: currentOrder,
-                  );
-                },
-                icon: const Icon(Icons.local_shipping, color: Colors.white),
-                label: const Text('Fulfill Order'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryLaurel,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-        // === Cancel Order Button ===
-        if (canRefund)
-          SizedBox(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () =>
-                  _showCancelConfirmationDialog(context, ref, currentOrder),
-              icon: const Icon(Icons.cancel, color: Colors.white),
-              label: Text(
-                currentOrder.status == OrderStatus.confirmed
-                    ? 'Cancel Order & Issue Refund (Post-Delivery)'
-                    : 'Cancel Order',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              onPressed: () {
+                context.goNamed(
+                  RouteEndpoint.fullfillOrder.split('/').first,
+                  pathParameters: {'id': currentOrder.id},
+                  extra: currentOrder,
+                );
+              },
+              icon: const Icon(Icons.local_shipping, color: Colors.white),
+              label: const Text('Fulfill Order'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[700],
+                backgroundColor: AppColors.primaryLaurel,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -147,159 +109,9 @@ class OrderDetailsScreen extends ConsumerWidget {
               ),
             ),
           ),
+        ),
       ],
     );
-  }
-
-  void _showCancelConfirmationDialog(
-    BuildContext context,
-    WidgetRef ref,
-    Order currentOrder,
-  ) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Confirm Cancellation'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              color: Colors.orange,
-              size: 56,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'This will CANCEL the order and issue a FULL refund of \$${currentOrder.total.toStringAsFixed(2)} to the customer.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Order #${currentOrder.id.substring(0, 8)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Go Back'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              Navigator.pop(ctx); // close dialog
-              _processRefund(context, ref, currentOrder);
-            },
-            child: const Text(
-              'Yes, Cancel & Refund',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _processRefund(
-    BuildContext context,
-    WidgetRef ref,
-    Order currentOrder,
-  ) async {
-    // Show loading
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Processing cancellation and refund...'),
-        duration: Duration(seconds: 10),
-      ),
-    );
-
-    try {
-      final result = await FirebaseFunctions.instance
-          .httpsCallable('refundOrder')
-          .call({
-            'paymentIntentId': currentOrder.paymentIntentId,
-            // 'paymentIntentId': "pi_3SU1y32IE5e3lR4S1qATTF7D",
-            /// 'amount': (currentOrder.total * 100).toInt(),  Uncomment for [partial refund]
-            'reason': 'requested_by_customer',
-          });
-
-      if (result.data['success'] == true) {
-        // Optional: Update order status to cancelled
-        await ref
-            .read(adminOrderProvider.notifier)
-            .updateOrderStatus(currentOrder.id, OrderStatus.cancelled);
-
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(currentOrder.userId)
-            .get();
-
-        final fcmToken = userDoc.data()?['fcmToken'] as String?;
-
-        if (fcmToken != null && fcmToken.isNotEmpty) {
-          try {
-            await FirebaseFunctions.instance
-                .httpsCallable('sendRefundNotification')
-                .call({
-                  'fcmToken': fcmToken,
-                  'orderId': currentOrder.id,
-                  'customerName': currentOrder.shippingAddress.fullName,
-                  'totalAmount': currentOrder.total.toStringAsFixed(2),
-                });
-            DPrint.log("Refund notification sent successfully");
-          } catch (e) {
-            DPrint.error("Failed to send refund notification: $e");
-            // Don't fail the whole refund if notification fails
-          }
-        } else {
-          DPrint.log(
-            "No FCM token found for user ${currentOrder.userId}, skipping notification",
-          );
-        }
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'Order cancelled! Customer has been refunded.',
-              ),
-              backgroundColor: Colors.green,
-              action: SnackBarAction(
-                label: 'View',
-                textColor: Colors.white,
-                onPressed: () {
-                  // Optional: Navigate to refund details
-                },
-              ),
-            ),
-          );
-        }
-      }
-    } on FirebaseFunctionsException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Refund failed: ${e.message}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Unexpected error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 
   Widget _buildOrderSummary(Order currentOrder) {

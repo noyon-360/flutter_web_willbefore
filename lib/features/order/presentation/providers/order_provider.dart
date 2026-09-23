@@ -237,24 +237,6 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
     }
   }
 
-  // Future<bool> refundOrder(String paymentIntentId, {int? amountInCents}) async {
-  //   try {
-  //     final result = await FirebaseFunctions.instance
-  //         .httpsCallable('refundOrder')
-  //         .call({
-  //           'paymentIntentId': paymentIntentId,
-  //           if (amountInCents != null) 'amount': amountInCents,
-  //           'reason': 'requested_by_customer',
-  //         });
-
-  //     DPrint.log("Refund result: ${result.data}");
-
-  //     return true;
-  //   } catch (e) {
-  //     return false;
-  //   }
-  // }
-
   void clearError() {
     state = state.copyWith(errorMessage: null);
   }

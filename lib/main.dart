@@ -1,8 +1,6 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:flutter_web_willbefore/theme/app_theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:url_strategy/url_strategy.dart';
@@ -15,13 +13,6 @@ final FirebaseFunctions functions = FirebaseFunctions.instance;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  final config = await rootBundle.loadString(
-    'assets/config/stripe_config.json',
-  );
-
-  Stripe.publishableKey = config;
-  // Stripe.publishableKey = stripePublishableKey;
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.web);
 

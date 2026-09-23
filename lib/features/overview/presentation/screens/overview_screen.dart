@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_willbefore/core/constants/app_colors.dart';
-import 'package:flutx_core/flutx_core.dart';
-import '../../../../core/services/stripe_service.dart';
 // import '../../../../data/dummy_data.dart'; // No longer used for fallbacks
 import '../../../../models/dashboard_models.dart';
 import '../../../product/presentation/providers/products_providers.dart';
@@ -21,28 +19,21 @@ class _OverviewScreenState extends ConsumerState<OverviewScreen> {
   String _newUserFilter = 'Month';
   String _liveProductFilter = 'Day';
   String _revenueFilter = 'Year';
-  String _chargeFilter = 'All'; // New filter for charges
 
-  double _totalRevenue = 0.0;
-  bool _isLoadingRevenue = false;
-  bool _isLoadingCharges = false;
-  List<ChartData> _revenueData = [];
+  final double _totalRevenue = 0.0;
+  final bool _isLoadingRevenue = false;
+  final List<ChartData> _revenueData = [];
   List<ChartData> _liveProductData = [];
   List<ChartData> _newUserData = [];
-  List<dynamic> _charges = [];
 
   @override
   void initState() {
     super.initState();
-    // Initialize Stripe
-    StripeService.init();
     // Delay provider modifications until after the widget tree is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(productsProvider.notifier).fetchProducts();
-      _fetchRevenueData();
       _fetchLiveProductData();
       _fetchNewUserData();
-      _fetchCharges();
     });
   }
 
@@ -73,165 +64,6 @@ class _OverviewScreenState extends ConsumerState<OverviewScreen> {
       'interval_start': startDate.millisecondsSinceEpoch ~/ 1000,
       'interval_end': now.millisecondsSinceEpoch ~/ 1000,
     };
-  }
-
-  // Fetch revenue data from Stripe charges
-  Future<void> _fetchRevenueData() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoadingRevenue = true;
-    });
-
-    try {
-      final timeRange = _getTimeRange(_revenueFilter);
-      final startDate = timeRange['start_date'] as DateTime;
-
-      // Fetch charges. Note: Stripe API might require pagination for very large datasets,
-      // but for a dashboard overview, a reasonable limit is usually sufficient for recent trends.
-      final charges = await StripeService.fetchCharges(
-        limit: 100,
-        status: 'succeeded',
-        created: {
-          'gte': timeRange['interval_start']!,
-          'lte': timeRange['interval_end']!,
-        },
-      );
-
-      final Map<String, double> revenueMap = {};
-      final List<String> labels = [];
-
-      // Initialize labels based on filter
-      if (_revenueFilter == 'Day') {
-        for (int i = 0; i <= 23; i++) {
-          String label = i.toString().padLeft(2, '0');
-          labels.add(label);
-          revenueMap[label] = 0.0;
-        }
-      } else if (_revenueFilter == 'Week') {
-        const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        labels.addAll(weekDays);
-        for (var day in weekDays) revenueMap[day] = 0.0;
-      } else if (_revenueFilter == 'Month') {
-        final daysInMonth = DateTime(
-          startDate.year,
-          startDate.month + 1,
-          0,
-        ).day;
-        for (int i = 1; i <= daysInMonth; i++) {
-          String label = i.toString();
-          labels.add(label);
-          revenueMap[label] = 0.0;
-        }
-      } else {
-        // Year
-        const months = [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec',
-        ];
-        labels.addAll(months);
-        for (var month in months) revenueMap[month] = 0.0;
-      }
-
-      double total = 0.0;
-      for (var charge in charges ?? []) {
-        final amount = (charge['amount'] as int) / 100.0;
-        total += amount;
-
-        final timestamp = charge['created'] as int;
-        final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
-        String label;
-
-        switch (_revenueFilter) {
-          case 'Day':
-            label = date.hour.toString().padLeft(2, '0');
-            break;
-          case 'Week':
-            const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            label = weekDays[date.weekday - 1];
-            break;
-          case 'Month':
-            label = date.day.toString();
-            break;
-          case 'Year':
-          default:
-            const months = [
-              'Jan',
-              'Feb',
-              'Mar',
-              'Apr',
-              'May',
-              'Jun',
-              'Jul',
-              'Aug',
-              'Sep',
-              'Oct',
-              'Nov',
-              'Dec',
-            ];
-            label = months[date.month - 1];
-            break;
-        }
-
-        if (revenueMap.containsKey(label)) {
-          revenueMap[label] = revenueMap[label]! + amount;
-        }
-      }
-
-      final List<ChartData> chartData = labels
-          .map((label) => ChartData(label: label, value: revenueMap[label]!))
-          .toList();
-
-      if (!mounted) return;
-      setState(() {
-        _totalRevenue = total;
-        _revenueData = chartData;
-        _isLoadingRevenue = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingRevenue = false;
-      });
-      DPrint.error("Error fetching revenue data: $e");
-    }
-  }
-
-  // Fetch charges from Stripe
-  Future<void> _fetchCharges() async {
-    setState(() {
-      _isLoadingCharges = true;
-    });
-
-    try {
-      final charges = await StripeService.fetchCharges(
-        limit: 10,
-        status: _chargeFilter == 'All' ? null : _chargeFilter.toLowerCase(),
-      );
-      if (!mounted) return;
-      setState(() {
-        _charges = charges ?? [];
-        _isLoadingCharges = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingCharges = false;
-      });
-      DPrint.error("Error fetching charges: $e");
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error fetching charges: $e')));
-    }
   }
 
   // Removed _aggregateChartData as aggregation is now handled within fetch methods
@@ -555,7 +387,6 @@ class _OverviewScreenState extends ConsumerState<OverviewScreen> {
             onFilterChanged: (filter) {
               setState(() {
                 _revenueFilter = filter;
-                _fetchRevenueData();
               });
             },
           ),
