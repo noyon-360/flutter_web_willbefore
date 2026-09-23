@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../../data/models/cart_item_model.dart';
 import '../../data/repositories/order_repository_impl.dart';
 import '../../data/repositories/user_repository_impl.dart';
 import '../../data/sources/order_remote_data_source.dart';
@@ -252,3 +255,32 @@ final adminOrderProvider =
 
       return AdminOrderNotifier(orderRepository, userRepository);
     });
+
+/// Orders placed by a single user, for the admin's user-detail view.
+final userOrdersProvider = FutureProvider.family<List<Order>, String>((
+  ref,
+  userId,
+) {
+  final orderRemoteDataSource = ref.read(orderRemoteDataSourceProvider);
+  final orderRepository = OrderRepositoryImpl(orderRemoteDataSource);
+  return orderRepository.getUserOrders(userId);
+});
+
+/// Items currently sitting in a user's cart (added but not checked out
+/// into an order yet), for the admin's user-detail view. Mirrors the
+/// buyer app's storage at `users/{userId}/cartItems`.
+final userCartItemsProvider = FutureProvider.family<List<CartItem>, String>((
+  ref,
+  userId,
+) async {
+  final snapshot = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(userId)
+      .collection('cartItems')
+      .orderBy('createdAt', descending: true)
+      .get();
+
+  return snapshot.docs
+      .map((doc) => CartItemModel.fromMap(doc.data()).toCartItem())
+      .toList();
+});

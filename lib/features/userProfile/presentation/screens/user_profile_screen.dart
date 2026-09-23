@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutx_core/flutx_core.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/user_roles.dart';
+import '../../../../core/routes/route_endpoint.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../order/data/models/user_model.dart';
+import '../../../order/domain/entities/order_entities.dart';
+import '../../../order/presentation/providers/order_provider.dart';
 import '../provider/all_user_provider.dart';
 
 class AllUserProfileScreen extends ConsumerStatefulWidget {
@@ -200,41 +205,52 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                 children: [
                   // Table Header
                   Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: const BorderRadius.only(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(12),
                         topRight: Radius.circular(12),
+                      ),
+                      border: Border(
+                        bottom: BorderSide(color: AppColors.borderColor),
                       ),
                     ),
                     child: Row(
                       children: [
                         Expanded(
-                          flex: 3,
+                          flex: 2,
                           child: Text(
                             'Name',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
+                              fontSize: 13,
+                              color: AppColors.textSecondaryColor,
                             ),
                           ),
                         ),
                         Expanded(
+                          flex: 2,
                           child: Text(
                             'Email',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
+                              fontSize: 13,
+                              color: AppColors.textSecondaryColor,
                             ),
                           ),
                         ),
                         Expanded(
+                          flex: 2,
                           child: Text(
                             'Phone',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
+                              fontSize: 13,
+                              color: AppColors.textSecondaryColor,
                             ),
                           ),
                         ),
@@ -243,7 +259,8 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                             'Role',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
+                              fontSize: 13,
+                              color: AppColors.textSecondaryColor,
                             ),
                           ),
                         ),
@@ -252,17 +269,28 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                             'Created At',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
+                              fontSize: 13,
+                              color: AppColors.textSecondaryColor,
                             ),
                           ),
                         ),
-                        SizedBox(
-                          width: 100,
+                        Expanded(
                           child: Text(
-                            'Action',
+                            'Pending Orders',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
+                              fontSize: 13,
+                              color: AppColors.textSecondaryColor,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'In Cart',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: AppColors.textSecondaryColor,
                             ),
                           ),
                         ),
@@ -322,108 +350,94 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                           }
 
                           final user = filteredUsers[index];
-                          final isLast = index == filteredUsers.length - 1;
-                          // A plain admin can only delete regular users;
-                          // super admin already excludes other super admins
-                          // above.
-                          final canDelete =
-                              isSuperAdmin || user.role == UserRoles.user;
 
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: isLast
-                                      ? Colors.transparent
-                                      : AppColors.borderColor,
+                          return Material(
+                            color: index.isEven
+                                ? const Color(0xFFF3F3F3)
+                                : Colors.white,
+                            child: InkWell(
+                              onTap: () => _openUserDetail(context, user),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 14,
                                 ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                // Name
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    user.displayNameOrEmail,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.textAppBlack,
-                                    ),
-                                  ),
-                                ),
-                                // Email
-                                Expanded(
-                                  child: Text(
-                                    user.email,
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondaryColor,
-                                    ),
-                                  ),
-                                ),
-                                // Phone
-                                Expanded(
-                                  child: Text(
-                                    user.phoneNumber ?? '-',
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondaryColor,
-                                    ),
-                                  ),
-                                ),
-                                // Role
-                                Expanded(
-                                  child: isSuperAdmin
-                                      ? _RoleDropdown(
-                                          userId: user.id,
-                                          role: user.role,
-                                          isLoading: userState.isLoading,
-                                        )
-                                      : Text(
-                                          UserRoles.label(user.role),
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            color: AppColors.textAppBlack,
-                                          ),
-                                        ),
-                                ),
-                                // Created At
-                                Expanded(
-                                  child: Text(
-                                    user.createdAt != null
-                                        ? DateFormat(
-                                            'dd MMM yyyy hh:mm a',
-                                          ).format(user.createdAt)
-                                        : '-',
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondaryColor,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                                // Actions
-                                SizedBox(
-                                  width: 100,
-                                  child: Row(
-                                    children: [
-                                      IconButton(
-                                        onPressed:
-                                            !canDelete || userState.isLoading
-                                            ? null
-                                            : () => _showDeleteDialog(
-                                                context,
-                                                user.id,
-                                              ),
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          size: 18,
-                                          color: Colors.red,
+                                child: Row(
+                                  children: [
+                                    // Name
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        user.displayNameOrEmail,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppColors.textAppBlack,
                                         ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                    // Email
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        user.email,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    // Phone
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        user.phoneNumber ?? '-',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    // Role
+                                    Expanded(
+                                      child: isSuperAdmin
+                                          ? _RoleDropdown(
+                                              userId: user.id,
+                                              role: user.role,
+                                              isLoading: userState.isLoading,
+                                            )
+                                          : _RoleBadge(role: user.role),
+                                    ),
+                                    // Created At
+                                    Expanded(
+                                      child: Text(
+                                        user.createdAt != null
+                                            ? DateFormat(
+                                                'dd MMM yyyy\nhh:mm a',
+                                              ).format(user.createdAt)
+                                            : '-',
+                                        style: const TextStyle(
+                                          color: AppColors.textSecondaryColor,
+                                          fontSize: 12,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ),
+                                    // Pending Orders
+                                    Expanded(
+                                      child: _PendingOrdersCount(
+                                        userId: user.id,
+                                      ),
+                                    ),
+                                    // In Cart
+                                    Expanded(
+                                      child: _CartItemsCount(userId: user.id),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           );
                         },
@@ -435,6 +449,14 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _openUserDetail(BuildContext context, UserModel user) {
+    context.goNamed(
+      RouteEndpoint.userDetails.split('/:').first,
+      pathParameters: {'id': user.id},
+      extra: user,
     );
   }
 
@@ -611,53 +633,135 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
       ),
     );
   }
+}
 
-  void _showDeleteDialog(BuildContext context, String userId) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete User'),
-          content: const Text(
-            'Are you sure you want to delete this user? This action cannot be undone.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                final success = await ref
-                    .read(userProvider.notifier)
-                    .deleteUser(userId);
-                if (!mounted) return;
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('User deleted successfully!'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                } else {
-                  final error =
-                      ref.read(userProvider).deleteError ??
-                      'Failed to delete user.';
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(error)));
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        );
+class _PendingOrdersCount extends ConsumerWidget {
+  final String userId;
+
+  const _PendingOrdersCount({required this.userId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsync = ref.watch(userOrdersProvider(userId));
+
+    return ordersAsync.when(
+      loading: () => const _CountSkeleton(),
+      error: (_, _) => const Text(
+        '-',
+        style: TextStyle(color: AppColors.textSecondaryColor, fontSize: 13),
+      ),
+      data: (orders) {
+        final pending = orders
+            .where((o) => o.status == OrderStatus.pending)
+            .length;
+        return _CountBadge(count: pending, color: Colors.orange);
       },
+    );
+  }
+}
+
+class _CartItemsCount extends ConsumerWidget {
+  final String userId;
+
+  const _CartItemsCount({required this.userId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cartAsync = ref.watch(userCartItemsProvider(userId));
+
+    return cartAsync.when(
+      loading: () => const _CountSkeleton(),
+      error: (_, _) => const Text(
+        '-',
+        style: TextStyle(color: AppColors.textSecondaryColor, fontSize: 13),
+      ),
+      data: (items) =>
+          _CountBadge(count: items.length, color: AppColors.primaryLaurel),
+    );
+  }
+}
+
+// Loading state for the per-row Pending Orders / In Cart cells. Deliberately
+// static (no animation): with 100+ rows each firing its own Firestore query,
+// that many concurrent animated CircularProgressIndicators overwhelms
+// CanvasKit's frame budget and the spinners visually smear into streaks.
+class _CountSkeleton extends StatelessWidget {
+  const _CountSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20,
+      height: 14,
+      decoration: BoxDecoration(
+        color: AppColors.borderColor.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  final int count;
+  final Color color;
+
+  const _CountBadge({required this.count, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    if (count == 0) {
+      return const Text(
+        '0',
+        style: TextStyle(color: AppColors.textSecondaryColor, fontSize: 13),
+      );
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          '$count',
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleBadge extends StatelessWidget {
+  final String role;
+
+  const _RoleBadge({required this.role});
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdmin = role != UserRoles.user;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isAdmin ? const Color(0xFF1B4332) : const Color(0xFF3B82F6),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          UserRoles.label(role),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
     );
   }
 }

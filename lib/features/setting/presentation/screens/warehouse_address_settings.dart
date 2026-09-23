@@ -39,9 +39,12 @@ class _WarehouseAddressSettingsState
     _emailCtrl = TextEditingController();
     _phoneCtrl = TextEditingController();
 
-    // Load from provider
+    // Pre-fill with whatever is already loaded, then fetch fresh data.
     final address = ref.read(warehouseProvider).address;
     if (address != null) _fillForm(address);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(warehouseProvider.notifier).refresh();
+    });
   }
 
   void _fillForm(WarehouseAddress address) {
@@ -95,6 +98,11 @@ class _WarehouseAddressSettingsState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(warehouseProvider);
+    ref.listen<WarehouseState>(warehouseProvider, (previous, next) {
+      if (next.address != null && next.address != previous?.address) {
+        setState(() => _fillForm(next.address!));
+      }
+    });
 
     return Padding(
       padding: const EdgeInsets.all(16),

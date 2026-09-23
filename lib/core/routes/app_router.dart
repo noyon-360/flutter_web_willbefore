@@ -133,6 +133,17 @@ class AppRouter {
             path: '/profile',
             name: 'profile',
             builder: (context, state) => const AllUserProfileScreen(),
+            routes: [
+              GoRoute(
+                path: RouteEndpoint.userDetails, // 'user-details/:id'
+                name: RouteEndpoint.userDetails.split('/:').first,
+                builder: (context, state) {
+                  final id = state.pathParameters['id']!;
+                  final user = state.extra as UserModel?;
+                  return UserDetailScreen(userId: id, initialUser: user);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/settings',

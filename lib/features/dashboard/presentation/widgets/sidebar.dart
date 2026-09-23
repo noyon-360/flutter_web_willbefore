@@ -20,110 +20,112 @@ class Sidebar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      width: 250,
+    return Material(
       color: Colors.white,
-      child: Column(
-        children: [
-          // Logo Section
-          Container(padding: const EdgeInsets.all(24), child: AppLogo()),
+      child: SizedBox(
+        width: 250,
+        child: Column(
+          children: [
+            // Logo Section
+            Container(padding: const EdgeInsets.all(24), child: AppLogo()),
 
-          /// [Version] Show the update version
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: FutureBuilder<PackageInfo>(
-              future: PackageInfo.fromPlatform(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return const Text(
-                    'Version unavailable',
-                    style: TextStyle(color: Colors.red, fontSize: 12),
+            /// [Version] Show the update version
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return const Text(
+                      'Version unavailable',
+                      style: TextStyle(color: Colors.red, fontSize: 12),
+                    );
+                  }
+
+                  if (!snapshot.hasData) {
+                    return const Text(
+                      'Loading version...',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    );
+                  }
+
+                  final packageInfo = snapshot.data!;
+                  return Text(
+                    'Version ${packageInfo.version}+${packageInfo.buildNumber}',
+                    style: const TextStyle(color: Colors.black, fontSize: 12),
                   );
-                }
-
-                if (!snapshot.hasData) {
-                  return const Text(
-                    'Loading version...',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  );
-                }
-
-                final packageInfo = snapshot.data!;
-                return Text(
-                  'Version ${packageInfo.version}+${packageInfo.buildNumber}',
-                  style: const TextStyle(color: Colors.black, fontSize: 12),
-                );
-              },
+                },
+              ),
             ),
-          ),
 
-          // Navigation Items
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                _buildNavItem(
-                  icon: Icons.dashboard_outlined,
-                  title: 'Dashboard',
-                  item: NavigationItem.dashboard,
-                ),
-                _buildNavItem(
-                  icon: Icons.category_outlined,
-                  title: 'Categories',
-                  item: NavigationItem.categories,
-                ),
-                _buildNavItem(
-                  icon: Icons.inventory_2_outlined,
-                  title: 'Product List',
-                  item: NavigationItem.productList,
-                ),
-                _buildNavItem(
-                  icon: Icons.shopping_cart_outlined,
-                  title: 'Order',
-                  item: NavigationItem.order,
-                ),
-                _buildNavItem(
-                  icon: Icons.local_offer_outlined,
-                  title: 'Promo',
-                  item: NavigationItem.promo,
-                ),
-                _buildNavItem(
-                  icon: Icons.person_outline,
-                  title: 'User Profile',
-                  item: NavigationItem.userProfile,
-                ),
-                _buildNavItem(
-                  icon: Icons.settings_outlined,
-                  title: 'Setting',
-                  item: NavigationItem.settings,
-                ),
-                /*
+            // Navigation Items
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  _buildNavItem(
+                    icon: Icons.dashboard_outlined,
+                    title: 'Dashboard',
+                    item: NavigationItem.dashboard,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.category_outlined,
+                    title: 'Categories',
+                    item: NavigationItem.categories,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.inventory_2_outlined,
+                    title: 'Product List',
+                    item: NavigationItem.productList,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.shopping_cart_outlined,
+                    title: 'Order',
+                    item: NavigationItem.order,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.local_offer_outlined,
+                    title: 'Promo',
+                    item: NavigationItem.promo,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.person_outline,
+                    title: 'User Profile',
+                    item: NavigationItem.userProfile,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.settings_outlined,
+                    title: 'Setting',
+                    item: NavigationItem.settings,
+                  ),
+                  /*
                 _buildNavItem(
                   icon: Icons.notifications_outlined,
                   title: 'Notifications',
                   item: NavigationItem.notifications,
                 ),
                 */
-              ],
-            ),
-          ),
-
-          // Logout Button
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text(
-                'Log Out',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.w500,
-                ),
+                ],
               ),
-              onTap: () => _handleLogout(context, ref),
             ),
-          ),
-        ],
+
+            // Logout Button
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text(
+                  'Log Out',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                onTap: () => _handleLogout(context, ref),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

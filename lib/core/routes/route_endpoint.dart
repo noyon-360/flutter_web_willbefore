@@ -18,6 +18,8 @@ import '../../features/promo/presentation/screens/add_promo_screen.dart';
 import '../../features/promo/presentation/screens/promo_screen.dart';
 import '../../features/setting/presentation/screens/admin_setting_screen.dart';
 import '../../features/userProfile/presentation/screens/user_profile_screen.dart';
+import '../../features/userProfile/presentation/screens/user_detail_screen.dart';
+import '../../features/order/data/models/user_model.dart';
 import '../../features/notifications/presentation/screens/notification_screen.dart';
 
 part 'app_router.dart';
@@ -53,6 +55,7 @@ class RouteEndpoint {
   // User routes
   static const String profile = '/profile';
   static const String users = '/user-profile';
+  static const String userDetails = 'user-details/:id';
   static const String settings = '/settings';
   static const String notifications = '/notifications';
 

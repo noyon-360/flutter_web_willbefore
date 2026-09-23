@@ -1,4 +1,5 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 
 const STAFF_ROLES = ["admin", "super_admin"];
@@ -112,9 +113,27 @@ exports.deleteAppUser = onCall(async (request) => {
   }
 
   await targetRef.delete();
-  await admin.auth().deleteUser(userId).catch(() => {
-    // Firestore doc is already gone; ignore if the Auth account was
-    // already removed or never existed.
-  });
+  try {
+    await admin.auth().deleteUser(userId);
+  } catch (error) {
+    // "already gone" is fine - that's the outcome we wanted anyway. Any
+    // other failure (permissions, network, quota, ...) must NOT be
+    // swallowed: it leaves a live Auth account for a user whose Firestore
+    // profile no longer exists, which breaks role/profile lookups for
+    // that account everywhere else in the app. Log it loudly and tell the
+    // caller the deletion was only partial so it can be retried/escalated.
+    if (error.code !== "auth/user-not-found") {
+      logger.error(
+          `deleteAppUser: failed to delete Auth account ${userId} ` +
+          `after removing its Firestore profile`,
+          error,
+      );
+      throw new HttpsError(
+          "internal",
+          "User profile was deleted, but the login account could not be " +
+          "removed. Please try again or contact support.",
+      );
+    }
+  }
   return {success: true};
 });
