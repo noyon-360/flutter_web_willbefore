@@ -58,11 +58,16 @@ function createPaginatedListFunction({
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "User must be logged in");
     }
-    if (requireAdmin && !request.auth.token.admin) {
-      throw new HttpsError(
-          "permission-denied",
-          "Only admins can access this data",
-      );
+    if (requireAdmin) {
+      const callerSnap = await admin.firestore()
+          .collection("users").doc(request.auth.uid).get();
+      const callerRole = callerSnap.exists ? callerSnap.data().role : null;
+      if (callerRole !== "admin" && callerRole !== "super_admin") {
+        throw new HttpsError(
+            "permission-denied",
+            "Only admins can access this data",
+        );
+      }
     }
 
     const data = request.data || {};

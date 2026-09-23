@@ -4,6 +4,8 @@ import 'package:flutx_core/flutx_core.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/user_roles.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../provider/all_user_provider.dart';
 
 class AllUserProfileScreen extends ConsumerStatefulWidget {
@@ -43,14 +45,19 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final userState = ref.watch(userProvider);
+    final isSuperAdmin = ref.watch(isSuperAdminProvider);
 
     // Get the current user
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?.id;
 
-    // Filter out the current user and admin roles
+    // A super admin manages admins and users; a plain admin manages only
+    // users. Nobody ever sees/edits another super admin from this screen.
     final filteredUsers = userState.users.where((user) {
-      return user.id != currentUserId && user.role != 'admin';
+      if (user.id == currentUserId) return false;
+      if (user.role == UserRoles.superAdmin) return false;
+      if (!isSuperAdmin && user.role != UserRoles.user) return false;
+      return true;
     }).toList();
 
     return Padding(
@@ -68,7 +75,7 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'User Profile',
+                  isSuperAdmin ? 'Admins & Users' : 'User Profile',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -126,58 +133,54 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Search
-          TextField(
-            controller: _searchController,
-            onSubmitted: (value) =>
-                ref.read(userProvider.notifier).search(value.trim()),
-            decoration: InputDecoration(
-              hintText: 'Search users by email...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        ref.read(userProvider.notifier).search('');
-                      },
+          // Search + Add
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  onSubmitted: (value) =>
+                      ref.read(userProvider.notifier).search(value.trim()),
+                  decoration: InputDecoration(
+                    hintText: 'Search users by email...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              ref.read(userProvider.notifier).search('');
+                            },
+                          ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                ),
               ),
-              filled: true,
-              fillColor: Colors.white,
-            ),
+              Gap.w16,
+              ElevatedButton.icon(
+                onPressed: () => _showCreateUserDialog(context, isSuperAdmin),
+                icon: const Icon(Icons.add, size: 20),
+                label: Text(isSuperAdmin ? 'Add Admin/User' : 'Add User'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryLaurel,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-
-          // Add User Button - Beautiful & Prominent
-          // Align(
-          //   alignment: Alignment.centerRight,
-          //   child: ElevatedButton.icon(
-          //     onPressed: () => _showCreateUserDialog(context),
-          //     icon: const Icon(Icons.add, size: 20),
-          //     label: const Text(
-          //       'Add New User',
-          //       style: TextStyle(fontWeight: FontWeight.w600),
-          //     ),
-          //     style: ElevatedButton.styleFrom(
-          //       backgroundColor: AppColors.primaryLaurel,
-          //       foregroundColor: Colors.white,
-          //       padding: const EdgeInsets.symmetric(
-          //         horizontal: 24,
-          //         vertical: 16,
-          //       ),
-          //       shape: RoundedRectangleBorder(
-          //         borderRadius: BorderRadius.circular(12),
-          //       ),
-          //       elevation: 4,
-          //       shadowColor: AppColors.primaryLaurel.withOpacity(0.4),
-          //     ),
-          //   ),
-          // ),
-          // const SizedBox(height: 24),
 
           // Users Table
           Expanded(
@@ -320,6 +323,11 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
 
                           final user = filteredUsers[index];
                           final isLast = index == filteredUsers.length - 1;
+                          // A plain admin can only delete regular users;
+                          // super admin already excludes other super admins
+                          // above.
+                          final canDelete =
+                              isSuperAdmin || user.role == UserRoles.user;
 
                           return Container(
                             padding: const EdgeInsets.all(16),
@@ -334,58 +342,21 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                             ),
                             child: Row(
                               children: [
-                                // Name with Image
+                                // Name
                                 Expanded(
                                   flex: 3,
-                                  child: Row(
-                                    children: [
-                                      // Container(
-                                      //   width: 60,
-                                      //   height: 60,
-                                      //   decoration: BoxDecoration(
-                                      //     borderRadius: BorderRadius.circular(8),
-                                      //     color: AppColors.bgColor,
-                                      //   ),
-                                      //   child: ClipRRect(
-                                      //     borderRadius: BorderRadius.circular(8),
-                                      //     child: user.photoURL != null && user.isValidPhotoURL()
-                                      //         ? Image.network(
-                                      //             user.photoURL!,
-                                      //             fit: BoxFit.cover,
-                                      //             errorBuilder: (context, error, stackTrace) {
-                                      //               return Center(
-                                      //                 child: Text(
-                                      //                   user.initials,
-                                      //                   style: TextStyle(color: Colors.white, fontSize: 20),
-                                      //                 ),
-                                      //               );
-                                      //             },
-                                      //           )
-                                      //         : Center(
-                                      //             child: Text(
-                                      //               user.initials,
-                                      //               style: TextStyle(color: Colors.white, fontSize: 20),
-                                      //             ),
-                                      //           ),
-                                      //   ),
-                                      // ),
-                                      // const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          user.displayNameOrEmail,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            color: AppColors.textAppBlack,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    user.displayNameOrEmail,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textAppBlack,
+                                    ),
                                   ),
                                 ),
                                 // Email
                                 Expanded(
                                   child: Text(
-                                    user.email ?? '-',
+                                    user.email,
                                     style: const TextStyle(
                                       color: AppColors.textSecondaryColor,
                                     ),
@@ -402,13 +373,19 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                                 ),
                                 // Role
                                 Expanded(
-                                  child: Text(
-                                    user.role,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.textAppBlack,
-                                    ),
-                                  ),
+                                  child: isSuperAdmin
+                                      ? _RoleDropdown(
+                                          userId: user.id,
+                                          role: user.role,
+                                          isLoading: userState.isLoading,
+                                        )
+                                      : Text(
+                                          UserRoles.label(user.role),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                            color: AppColors.textAppBlack,
+                                          ),
+                                        ),
                                 ),
                                 // Created At
                                 Expanded(
@@ -429,18 +406,9 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                                   width: 100,
                                   child: Row(
                                     children: [
-                                      // IconButton(
-                                      //   onPressed: () => context.go(
-                                      //     '${RouteEndpoint.users}/edit/${user.id}',
-                                      //   ),
-                                      //   icon: const Icon(
-                                      //     Icons.edit_outlined,
-                                      //     size: 18,
-                                      //     color: AppColors.primaryLaurel,
-                                      //   ),
-                                      // ),
                                       IconButton(
-                                        onPressed: userState.isLoading
+                                        onPressed:
+                                            !canDelete || userState.isLoading
                                             ? null
                                             : () => _showDeleteDialog(
                                                 context,
@@ -461,23 +429,6 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                         },
                       ),
                     ),
-
-                  // // Footer
-                  // if (filteredUsers.isNotEmpty)
-                  //   Container(
-                  //     padding: const EdgeInsets.all(16),
-                  //     decoration: const BoxDecoration(
-                  //       border: Border(
-                  //         top: BorderSide(color: AppColors.borderColor),
-                  //       ),
-                  //     ),
-                  //     child: Text(
-                  //       'Showing all ${filteredUsers.length} results',
-                  //       style: const TextStyle(
-                  //         color: AppColors.textSecondaryColor,
-                  //       ),
-                  //     ),
-                  //   ),
                 ],
               ),
             ),
@@ -487,10 +438,11 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
     );
   }
 
-  void _showCreateUserDialog(BuildContext context) {
+  void _showCreateUserDialog(BuildContext context, bool isSuperAdmin) {
     final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController();
     final emailController = TextEditingController();
+    String selectedRole = UserRoles.user;
 
     bool isLoading = false;
 
@@ -499,46 +451,77 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
       barrierDismissible: !isLoading,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setStateDialog) => AlertDialog(
-          title: const Text('Create New User'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(),
+          title: Text(isSuperAdmin ? 'Add Admin or User' : 'Add New User'),
+          content: SizedBox(
+            width: 480,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter a name';
+                      }
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter a name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter an email';
+                      }
+                      if (!RegExp(
+                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                      ).hasMatch(value)) {
+                        return 'Enter a valid email';
+                      }
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter an email';
-                    }
-                    if (!RegExp(
-                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                    ).hasMatch(value)) {
-                      return 'Enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: 'Role',
+                      border: OutlineInputBorder(),
+                    ),
+                    // A plain admin may only create regular users - enforced
+                    // again server-side either way.
+                    items:
+                        (isSuperAdmin
+                                ? UserRoles.assignableRoles
+                                : [UserRoles.user])
+                            .map(
+                              (role) => DropdownMenuItem(
+                                value: role,
+                                child: Text(UserRoles.label(role)),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: !isSuperAdmin
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setStateDialog(() => selectedRole = value);
+                            }
+                          },
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -564,23 +547,27 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                           .createUser(
                             name: nameController.text.trim(),
                             email: emailController.text.trim(),
+                            role: isSuperAdmin ? selectedRole : UserRoles.user,
                           );
 
                       if (!dialogContext.mounted) return;
+                      Navigator.of(dialogContext).pop();
 
                       if (success) {
-                        Navigator.of(dialogContext).pop();
+                        final invitedEmail = ref
+                            .read(userProvider)
+                            .lastInvitedEmail;
+                        if (context.mounted && invitedEmail != null) {
+                          _showInviteSentDialog(context, invitedEmail);
+                        }
+                      } else if (context.mounted) {
+                        final message = ref.read(userProvider).errorMessage;
+                        final error = message.isEmpty
+                            ? 'Failed to invite user. Try again.'
+                            : message;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('User created successfully!'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      } else {
-                        setStateDialog(() => isLoading = false);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Failed to create user. Try again.'),
+                          SnackBar(
+                            content: Text(error),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -599,6 +586,28 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showInviteSentDialog(BuildContext context, String email) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Account Created'),
+        content: Text(
+          'The account for $email has been created and a password-reset '
+          'email was sent to them so they can set their own password.',
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryLaurel,
+            ),
+            child: const Text('Done', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
@@ -623,13 +632,21 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                 final success = await ref
                     .read(userProvider.notifier)
                     .deleteUser(userId);
-                if (success && mounted) {
+                if (!mounted) return;
+                if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('User deleted successfully!'),
                       backgroundColor: Colors.red,
                     ),
                   );
+                } else {
+                  final error =
+                      ref.read(userProvider).deleteError ??
+                      'Failed to delete user.';
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(error)));
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -641,6 +658,56 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
           ],
         );
       },
+    );
+  }
+}
+
+class _RoleDropdown extends ConsumerWidget {
+  final String userId;
+  final String role;
+  final bool isLoading;
+
+  const _RoleDropdown({
+    required this.userId,
+    required this.role,
+    required this.isLoading,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Only admin/user are ever assignable from this screen.
+    final currentValue = UserRoles.assignableRoles.contains(role)
+        ? role
+        : UserRoles.user;
+
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: currentValue,
+        isDense: true,
+        items: UserRoles.assignableRoles
+            .map(
+              (r) =>
+                  DropdownMenuItem(value: r, child: Text(UserRoles.label(r))),
+            )
+            .toList(),
+        onChanged: isLoading
+            ? null
+            : (value) async {
+                if (value == null || value == role) return;
+                final success = await ref
+                    .read(userProvider.notifier)
+                    .updateUserRole(userId, value);
+                if (!context.mounted) return;
+                if (!success) {
+                  final error =
+                      ref.read(userProvider).updateError ??
+                      'Failed to update role.';
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(error)));
+                }
+              },
+      ),
     );
   }
 }

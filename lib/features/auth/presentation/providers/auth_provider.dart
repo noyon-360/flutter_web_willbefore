@@ -1,5 +1,7 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_web_willbefore/core/base/base_state.dart';
+import 'package:flutter_web_willbefore/core/constants/user_roles.dart';
 import 'package:flutter_web_willbefore/features/auth/data/repos/auth_repository_impl.dart';
 import 'package:flutter_web_willbefore/features/auth/domain/models/user_model.dart';
 import 'package:flutter_web_willbefore/features/auth/domain/repos/auth_repository.dart';
@@ -10,6 +12,7 @@ class AuthState extends BaseState {
   final UserModel? user;
   final bool isAuthenticated;
   final bool isInitialized;
+  final String? role;
 
   const AuthState({
     super.isLoading = false,
@@ -17,6 +20,7 @@ class AuthState extends BaseState {
     this.user,
     this.isAuthenticated = false,
     this.isInitialized = false,
+    this.role,
   });
 
   @override
@@ -26,6 +30,7 @@ class AuthState extends BaseState {
     UserModel? user,
     bool? isAuthenticated,
     bool? isInitialized,
+    String? role,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
@@ -33,6 +38,7 @@ class AuthState extends BaseState {
       user: user ?? this.user,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       isInitialized: isInitialized ?? this.isInitialized,
+      role: role ?? this.role,
     );
   }
 }
@@ -42,6 +48,17 @@ final authProvider = StateNotifierProvider<AuthProvider, AuthState>((ref) {
   final loginUseCase = LoginUseCase(authRepository);
 
   return AuthProvider(loginUseCase, authRepository);
+});
+
+/// The signed-in staff member's role ('super_admin' or 'admin'), sourced
+/// from their Firestore users/{uid} doc rather than the paginated users
+/// list, so it is available even before that list has loaded.
+final currentUserRoleProvider = Provider<String?>((ref) {
+  return ref.watch(authProvider).role;
+});
+
+final isSuperAdminProvider = Provider<bool>((ref) {
+  return UserRoles.isSuperAdmin(ref.watch(currentUserRoleProvider));
 });
 
 class AuthProvider extends StateNotifier<AuthState> {
@@ -67,7 +84,7 @@ class AuthProvider extends StateNotifier<AuthState> {
       final user = await _authRepository.authStateChanges.first;
       if (user != null) {
         final role = await _authRepository.getUserRole(user.uid);
-        if (role != 'admin') {
+        if (!UserRoles.isStaff(role)) {
           await _authRepository.logout();
           state = state.copyWith(isAuthenticated: false, isInitialized: true);
           return;
@@ -76,6 +93,7 @@ class AuthProvider extends StateNotifier<AuthState> {
           user: user,
           isAuthenticated: true,
           isInitialized: true,
+          role: role,
         );
       } else {
         state = state.copyWith(isAuthenticated: false, isInitialized: true);
@@ -95,7 +113,7 @@ class AuthProvider extends StateNotifier<AuthState> {
       final userModel = await _loginUseCase.call(request);
 
       final role = await _authRepository.getUserRole(userModel.uid);
-      if (role != 'admin') {
+      if (!UserRoles.isStaff(role)) {
         await _authRepository.logout();
         state = state.copyWith(
           isLoading: false,
@@ -104,6 +122,7 @@ class AuthProvider extends StateNotifier<AuthState> {
         return false;
       }
 
+      state = state.copyWith(isAuthenticated: true, role: role);
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());

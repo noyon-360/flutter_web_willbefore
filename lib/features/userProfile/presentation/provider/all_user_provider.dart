@@ -1,13 +1,8 @@
 // features/users/presentation/providers/user_provider.dart
-import 'dart:convert';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:flutx_core/flutx_core.dart';
-import 'package:http/http.dart' as http;
 import '../../../../core/base/base_state.dart';
 import '../../../order/data/models/user_model.dart';
 import '../../data/repository/user_profile_repository_impl.dart';
@@ -21,6 +16,7 @@ class AllUserState extends BaseState {
   final bool hasMore;
   final bool isLoadingMore;
   final String searchTerm;
+  final String? lastInvitedEmail;
 
   const AllUserState({
     super.isLoading = false,
@@ -32,6 +28,7 @@ class AllUserState extends BaseState {
     this.hasMore = true,
     this.isLoadingMore = false,
     this.searchTerm = '',
+    this.lastInvitedEmail,
   });
 
   @override
@@ -45,6 +42,7 @@ class AllUserState extends BaseState {
     bool? hasMore,
     bool? isLoadingMore,
     String? searchTerm,
+    String? lastInvitedEmail,
   }) {
     return AllUserState(
       isLoading: isLoading ?? this.isLoading,
@@ -56,12 +54,13 @@ class AllUserState extends BaseState {
       hasMore: hasMore ?? this.hasMore,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       searchTerm: searchTerm ?? this.searchTerm,
+      lastInvitedEmail: lastInvitedEmail ?? this.lastInvitedEmail,
     );
   }
 }
 
 final userRepositoryProvider = Provider<AllUserProfileRepository>((ref) {
-  return AllUserProfileRepositorImpl(FirebaseFirestore.instance);
+  return AllUserProfileRepositorImpl();
 });
 
 final userProvider = StateNotifierProvider<UserProvider, AllUserState>((ref) {
@@ -69,6 +68,10 @@ final userProvider = StateNotifierProvider<UserProvider, AllUserState>((ref) {
   return UserProvider(userRepository);
 });
 
+/// Kept for screens that need the signed-in user's row from the loaded user
+/// list (e.g. to exclude "self" from a table). For role checks, prefer
+/// `currentUserRoleProvider` in auth_provider.dart, which does not depend on
+/// the paginated list having loaded the current user's page yet.
 final currentUserProvider = Provider<UserModel?>((ref) {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) return null;
@@ -143,71 +146,51 @@ class UserProvider extends StateNotifier<AllUserState> {
     _loadFirstPage();
   }
 
-  Future<void> makeMeAdminWithToken() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      print("Not logged in");
-      return;
-    }
-
-    final idToken = await user.getIdToken(); // this forces a fresh token
-
-    DPrint.log("user token $idToken");
-
-    final response = await http.post(
-      Uri.parse('http://localhost:5001/smilestreats/us-central1/makeMeAdmin'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $idToken', // this line sends the token
-      },
-      body: jsonEncode({}), // empty data
+  /// Creates a new admin or user account with a random, never-shared
+  /// password, then sends the invited user a Firebase password-reset email
+  /// so they can set their own. [role] must be 'admin' or 'user' (super
+  /// admin accounts are never created through the app). Only a super admin
+  /// may successfully invite an 'admin' - enforced server-side.
+  Future<bool> createUser({
+    required String name,
+    required String email,
+    required String role,
+  }) async {
+    state = state.copyWith(
+      isLoading: true,
+      errorMessage: null,
+      lastInvitedEmail: null,
     );
 
-    print("Response: ${response.body}");
-  }
-
-  Future<bool> createUser({required String name, required String email}) async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
-
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      // makeMeAdminWithToken();
-
-      // await FirebaseFunctions.instance.httpsCallable('makeMeAdmin').call({
-      //   "token": await user!.getIdToken(),
-      // });
-      FirebaseFunctions.instance.httpsCallable("helloWorld");
-
-      // Get the callable function
-      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable(
-        'inviteUser',
+      final result = await _userRepository.inviteUser(
+        email: email,
+        role: role,
+        name: name,
       );
 
-      // Call the function
-      final result = await callable.call({'email': email});
+      state = AllUserState(
+        users: state.users,
+        nextCursor: state.nextCursor,
+        hasMore: state.hasMore,
+        searchTerm: state.searchTerm,
+        lastInvitedEmail: result.email,
+      );
 
-      DPrint.log("inviteUser ${result.data['message']}");
+      // The Cloud Function might take a split second to create the doc in
+      // Firestore before it shows up in the paginated list.
+      Future.delayed(const Duration(milliseconds: 500), () {
+        refreshUsers();
+      });
 
-      // Success!
-      if (result.data['success'] == true) {
-        // Success!
-        state = state.copyWith(isLoading: false, errorMessage: null);
-
-        // Refresh users list immediately
-        // The Cloud Function might take a split second to create the doc in Firestore
-        Future.delayed(const Duration(milliseconds: 500), () {
-          refreshUsers();
-        });
-
-        return true;
-      } else {
-        throw Exception("Invite failed");
-      }
+      return true;
     } on FirebaseFunctionsException catch (e) {
       String message = 'Failed to invite user';
 
       if (e.code == 'permission-denied') {
-        message = 'Only admins can invite users';
+        message = e.message ?? 'You are not allowed to invite this role';
+      } else if (e.code == 'already-exists') {
+        message = 'This email is already in use';
       } else if (e.code == 'invalid-argument') {
         message = 'Invalid email address';
       } else {
@@ -240,6 +223,12 @@ class UserProvider extends StateNotifier<AllUserState> {
 
       state = state.copyWith(users: updatedUsers, isLoading: false);
       return true;
+    } on FirebaseFunctionsException catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        updateError: e.message ?? 'Failed to update user role',
+      );
+      return false;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -261,6 +250,12 @@ class UserProvider extends StateNotifier<AllUserState> {
 
       state = state.copyWith(users: updatedUsers, isLoading: false);
       return true;
+    } on FirebaseFunctionsException catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        deleteError: e.message ?? 'Failed to delete user',
+      );
+      return false;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,

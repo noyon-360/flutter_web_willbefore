@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_willbefore/core/constants/app_colors.dart';
+import 'package:flutter_web_willbefore/core/constants/user_roles.dart';
 // import '../../../../data/dummy_data.dart'; // No longer used for fallbacks
 import '../../../../models/dashboard_models.dart';
 import '../../../product/presentation/providers/products_providers.dart';
@@ -214,7 +215,7 @@ class _OverviewScreenState extends ConsumerState<OverviewScreen> {
       for (var month in months) userCounts[month] = 0;
     }
 
-    for (var user in users.where((u) => u.role != 'admin')) {
+    for (var user in users.where((u) => !UserRoles.isStaff(u.role))) {
       if (user.createdAt.isAfter(startDate)) {
         String label;
         switch (_newUserFilter) {
@@ -287,7 +288,9 @@ class _OverviewScreenState extends ConsumerState<OverviewScreen> {
     int totalLiveProducts = productsState.products
         .where((p) => p.isActive)
         .length;
-    int totalUsers = userState.users.where((u) => u.role != 'admin').length;
+    int totalUsers = userState.users
+        .where((u) => !UserRoles.isStaff(u.role))
+        .length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),

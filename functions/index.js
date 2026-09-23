@@ -9,6 +9,11 @@ admin.initializeApp({
 
 exports.startShipment = require("./controllers/start_shipment").startShipment;
 exports.inviteUser = require("./controllers/invite_user").inviteUser;
+
+const manageUsers = require("./controllers/manage_users");
+exports.updateUserRole = manageUsers.updateUserRole;
+exports.deleteAppUser = manageUsers.deleteAppUser;
+
 exports.sendProductNotification =
   require("./controllers/on_new_product").sendProductNotification;
 exports.sendSubscriptionNotification =
