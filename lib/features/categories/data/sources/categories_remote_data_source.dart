@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutx_core/flutx_core.dart';
 
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../../domain/models/category_model.dart';
 import '../../domain/requests/create_category_request.dart';
 import '../../domain/requests/update_category_request.dart';
@@ -15,6 +16,19 @@ class CategoriesRemoteDataSource {
 
   static const String _collection = 'categories';
   static const String _storageFolder = 'categories';
+
+  Future<PaginatedFetchResult<CategoryModel>> getCategoriesPage({
+    String? cursor,
+    String? searchTerm,
+  }) {
+    return fetchPaginatedPage<CategoryModel>(
+      functionName: 'getCategoriesPage',
+      fromMap: (map) =>
+          CategoryModel.fromFirestore(map, map['id'] as String),
+      cursor: cursor,
+      searchTerm: searchTerm,
+    );
+  }
 
   Future<List<CategoryModel>> getCategories() async {
     try {

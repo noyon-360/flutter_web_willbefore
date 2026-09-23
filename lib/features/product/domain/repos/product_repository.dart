@@ -1,9 +1,14 @@
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../entrity/product.dart';
 import '../requests/create_product_request.dart';
 import '../requests/update_product_request.dart';
 
 
 abstract class ProductsRepository {
+  Future<PaginatedFetchResult<Product>> getProductsPage({
+    String? cursor,
+    String? searchTerm,
+  });
   Future<List<Product>> getAllProducts();
   Future<List<Product>> getProductsByCategory(String categoryId);
   Future<List<Product>> getProductsByPromo(String promoId);

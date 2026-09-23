@@ -1,43 +1,57 @@
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:flutx_core/flutx_core.dart';
 
 import '../../data/repositories/order_repository_impl.dart';
 import '../../data/repositories/user_repository_impl.dart';
 import '../../data/sources/order_remote_data_source.dart';
 import '../../data/sources/user_remote_data_source.dart';
 import '../../domain/entities/order_entities.dart';
-import '../../domain/entities/user_entities.dart';
 import '../../domain/repositories/order_repositry.dart';
 import '../../domain/repositories/user_repository.dart';
 
 class AdminOrderState {
   final List<Order> orders;
-  final List<User> users;
+  final int usersCount;
   final bool isLoading;
   final bool isUpdating;
   final String? errorMessage;
+  final String? nextCursor;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final String searchTerm;
 
   const AdminOrderState({
     this.orders = const [],
-    this.users = const [],
+    this.usersCount = 0,
     this.isLoading = false,
     this.isUpdating = false,
     this.errorMessage,
+    this.nextCursor,
+    this.hasMore = true,
+    this.isLoadingMore = false,
+    this.searchTerm = '',
   });
 
   AdminOrderState copyWith({
     List<Order>? orders,
-    List<User>? users,
+    int? usersCount,
     bool? isLoading,
     bool? isUpdating,
     String? errorMessage,
+    String? nextCursor,
+    bool? hasMore,
+    bool? isLoadingMore,
+    String? searchTerm,
   }) {
     return AdminOrderState(
       orders: orders ?? this.orders,
-      users: users ?? this.users,
+      usersCount: usersCount ?? this.usersCount,
       isLoading: isLoading ?? this.isLoading,
       isUpdating: isUpdating ?? this.isUpdating,
       errorMessage: errorMessage ?? this.errorMessage,
+      nextCursor: nextCursor ?? this.nextCursor,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      searchTerm: searchTerm ?? this.searchTerm,
     );
   }
 }
@@ -49,34 +63,49 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
   AdminOrderNotifier(this._orderRepository, this._userRepository)
     : super(const AdminOrderState());
 
-  Future<void> fetchAllUsersAndOrders() async {
+  Future<void> fetchAllOrders() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      // Fetch all users first
-      final users = await _userRepository.getAllUsers();
-
-      // Fetch all orders directly from main orders collection
-      final orders = await _orderRepository.getAllOrders();
-
-      state = state.copyWith(users: users, orders: orders, isLoading: false);
+      final usersCount = await _userRepository.getActiveUsersCount();
+      final page = await _orderRepository.getOrdersPage(
+        searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+      );
+      state = AdminOrderState(
+        orders: page.items,
+        usersCount: usersCount,
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+        searchTerm: state.searchTerm,
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
 
-  Future<void> fetchAllOrders() async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+  Future<void> loadMore() async {
+    if (state.isLoadingMore || !state.hasMore) return;
 
+    state = state.copyWith(isLoadingMore: true);
     try {
-      final orders = await _orderRepository.getAllOrders();
-
-      DPrint.log('Fetched ${orders.length} orders from repository');
-
-      state = state.copyWith(orders: orders, isLoading: false);
+      final page = await _orderRepository.getOrdersPage(
+        cursor: state.nextCursor,
+        searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+      );
+      state = state.copyWith(
+        orders: [...state.orders, ...page.items],
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+        isLoadingMore: false,
+      );
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      state = state.copyWith(isLoadingMore: false, errorMessage: e.toString());
     }
+  }
+
+  Future<void> search(String term) async {
+    state = AdminOrderState(searchTerm: term, isLoading: true);
+    await fetchAllOrders();
   }
 
   Future<bool> updateOrderStatus(String orderId, OrderStatus newStatus) async {
@@ -229,51 +258,6 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
   void clearError() {
     state = state.copyWith(errorMessage: null);
   }
-
-  void subscribeToUsersAndOrders() {
-    // Subscribe to users stream
-    _userRepository.getAllUsersStream().listen(
-      (users) {
-        state = state.copyWith(users: users);
-      },
-      onError: (error) {
-        state = state.copyWith(errorMessage: error.toString());
-      },
-    );
-
-    // Subscribe to orders stream directly
-    _orderRepository.getAllOrdersStream().listen(
-      (orders) {
-        if (!state.isLoading) {
-          state = state.copyWith(orders: orders);
-        }
-      },
-      onError: (error) {
-        state = state.copyWith(errorMessage: error.toString());
-      },
-    );
-  }
-
-  void subscribeToOrders() {
-    _orderRepository.getAllOrdersStream().listen(
-      (orders) {
-        if (!state.isLoading) {
-          state = state.copyWith(orders: orders);
-        }
-      },
-      onError: (error) {
-        state = state.copyWith(errorMessage: error.toString());
-      },
-    );
-  }
-
-  User? getUserForOrder(String userId) {
-    try {
-      return state.users.firstWhere((user) => user.id == userId);
-    } catch (e) {
-      return null;
-    }
-  }
 }
 
 final adminOrderProvider =
@@ -284,10 +268,5 @@ final adminOrderProvider =
       final userRemoteDataSource = ref.read(userRemoteDataSourceProvider);
       final userRepository = UserRepositoryImpl(userRemoteDataSource);
 
-      final notifier = AdminOrderNotifier(orderRepository, userRepository);
-
-      // Subscribe to real-time updates for users and orders
-      notifier.subscribeToUsersAndOrders();
-
-      return notifier;
+      return AdminOrderNotifier(orderRepository, userRepository);
     });

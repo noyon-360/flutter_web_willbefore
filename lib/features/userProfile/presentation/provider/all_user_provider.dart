@@ -1,5 +1,4 @@
 // features/users/presentation/providers/user_provider.dart
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -18,6 +17,10 @@ class AllUserState extends BaseState {
   final List<UserModel> users;
   final String? updateError;
   final String? deleteError;
+  final String? nextCursor;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final String searchTerm;
 
   const AllUserState({
     super.isLoading = false,
@@ -25,6 +28,10 @@ class AllUserState extends BaseState {
     this.users = const [],
     this.updateError,
     this.deleteError,
+    this.nextCursor,
+    this.hasMore = true,
+    this.isLoadingMore = false,
+    this.searchTerm = '',
   });
 
   @override
@@ -34,6 +41,10 @@ class AllUserState extends BaseState {
     List<UserModel>? users,
     String? updateError,
     String? deleteError,
+    String? nextCursor,
+    bool? hasMore,
+    bool? isLoadingMore,
+    String? searchTerm,
   }) {
     return AllUserState(
       isLoading: isLoading ?? this.isLoading,
@@ -41,6 +52,10 @@ class AllUserState extends BaseState {
       users: users ?? this.users,
       updateError: updateError ?? this.updateError,
       deleteError: deleteError ?? this.deleteError,
+      nextCursor: nextCursor ?? this.nextCursor,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      searchTerm: searchTerm ?? this.searchTerm,
     );
   }
 }
@@ -70,39 +85,62 @@ final currentUserProvider = Provider<UserModel?>((ref) {
 
 class UserProvider extends StateNotifier<AllUserState> {
   final AllUserProfileRepository _userRepository;
-  StreamSubscription? _usersSubscription;
 
   UserProvider(this._userRepository) : super(const AllUserState()) {
-    _loadUsers();
+    _loadFirstPage();
   }
 
-  @override
-  void dispose() {
-    _usersSubscription?.cancel();
-    super.dispose();
-  }
-
-  void _loadUsers() {
+  Future<void> _loadFirstPage() async {
     state = state.copyWith(isLoading: true);
+    try {
+      final page = await _userRepository.getUsersPage(
+        searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+      );
+      state = AllUserState(
+        users: page.items,
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+        searchTerm: state.searchTerm,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Failed to load users: $error',
+      );
+    }
+  }
 
-    _usersSubscription?.cancel();
+  Future<void> loadMore() async {
+    if (state.isLoadingMore || !state.hasMore) return;
 
-    // Listen to users stream
-    _usersSubscription = _userRepository.getUsers().listen(
-      (users) {
-        state = state.copyWith(
-          users: users,
-          isLoading: false,
-          errorMessage: null,
-        );
-      },
-      onError: (error) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: 'Failed to load users: $error',
-        );
-      },
-    );
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final page = await _userRepository.getUsersPage(
+        cursor: state.nextCursor,
+        searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+      );
+      state = state.copyWith(
+        users: [...state.users, ...page.items],
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+        isLoadingMore: false,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        isLoadingMore: false,
+        errorMessage: 'Failed to load more users: $error',
+      );
+    }
+  }
+
+  Future<void> search(String term) async {
+    state = AllUserState(searchTerm: term, isLoading: true);
+    await _loadFirstPage();
+  }
+
+  void refreshUsers() {
+    state = AllUserState(searchTerm: state.searchTerm);
+    _loadFirstPage();
   }
 
   Future<void> makeMeAdminWithToken() async {
@@ -230,9 +268,5 @@ class UserProvider extends StateNotifier<AllUserState> {
       );
       return false;
     }
-  }
-
-  void refreshUsers() {
-    _loadUsers();
   }
 }

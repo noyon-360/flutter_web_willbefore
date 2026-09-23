@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutx_core/flutx_core.dart';
 
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../../domain/models/promo_model.dart';
 import '../../domain/requests/create_promo_request.dart';
 import '../../domain/requests/update_promo_request.dart';
@@ -15,6 +16,18 @@ class PromosRemoteDataSource {
 
   static const String _collection = 'promos';
   static const String _storageFolder = 'promos';
+
+  Future<PaginatedFetchResult<PromoModel>> getPromosPage({
+    String? cursor,
+    String? searchTerm,
+  }) {
+    return fetchPaginatedPage<PromoModel>(
+      functionName: 'getPromosPage',
+      fromMap: (map) => PromoModel.fromFirestore(map, map['id'] as String),
+      cursor: cursor,
+      searchTerm: searchTerm,
+    );
+  }
 
   Future<List<PromoModel>> getPromos() async {
     try {

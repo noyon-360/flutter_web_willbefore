@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../../domain/entities/order_entities.dart';
 import '../../domain/repositories/order_repositry.dart';
 import '../sources/order_remote_data_source.dart';
@@ -10,6 +11,14 @@ class OrderRepositoryImpl implements OrderRepository {
 
   OrderRepositoryImpl(this._remoteDataSource, {FirebaseAuth? auth})
     : _auth = auth ?? FirebaseAuth.instance;
+
+  @override
+  Future<PaginatedFetchResult<Order>> getOrdersPage({
+    String? cursor,
+    String? searchTerm,
+  }) {
+    return _remoteDataSource.getOrdersPage(cursor: cursor, searchTerm: searchTerm);
+  }
 
   // @override
   // Future<Order> createOrder({

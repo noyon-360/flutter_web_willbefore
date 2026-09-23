@@ -1,3 +1,4 @@
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../entities/order_entities.dart';
 
 abstract class OrderRepository {
@@ -7,6 +8,10 @@ abstract class OrderRepository {
   //   required String paymentIntentId,
   // });
 
+  Future<PaginatedFetchResult<Order>> getOrdersPage({
+    String? cursor,
+    String? searchTerm,
+  });
   Future<List<Order>> getUserOrders([String? userId]);
   Stream<List<Order>> getUserOrdersStream([String? userId]);
   Future<List<Order>> getAllOrders();

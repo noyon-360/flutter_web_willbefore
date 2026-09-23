@@ -43,6 +43,21 @@ class UserModel {
     );
   }
 
+  factory UserModel.fromMap(Map<String, dynamic> data) {
+    return UserModel(
+      id: data['id'] as String,
+      email: data['email'] ?? '',
+      name: data['name'],
+      displayName: data['displayName'],
+      phoneNumber: data['phoneNumber'],
+      createdAt: DateTime.fromMillisecondsSinceEpoch(data['createdAt'] as int),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(data['updatedAt'] as int),
+      isActive: data['isActive'] ?? true,
+      role: data['role'] ?? 'user',
+      isEmailVerified: data['isEmailVerified'] ?? false,
+    );
+  }
+
   factory UserModel.fromEntity(User user) {
     return UserModel(
       id: user.id,

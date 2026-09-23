@@ -66,11 +66,11 @@ class OrderModel {
   }
 
   factory OrderModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    return OrderModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+  }
 
-    DPrint.log(
-      '🐞 DEBUG: Converting Firestore document to OrderModel: ${doc.data()}',
-    );
+  factory OrderModel.fromMap(Map<String, dynamic> data, String id) {
+    DPrint.log('🐞 DEBUG: Converting document to OrderModel: $data');
 
     List<CartItem> items = [];
     try {
@@ -173,7 +173,7 @@ class OrderModel {
     }
 
     final orderModel = OrderModel(
-      id: doc.id,
+      id: id,
       userId: data['userId']?.toString() ?? '',
       items: items,
       shippingAddress: shippingAddress,

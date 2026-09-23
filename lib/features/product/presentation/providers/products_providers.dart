@@ -19,6 +19,10 @@ class ProductsState {
   final bool isUpdating;
   final bool isDeleting;
   final String? errorMessage;
+  final String? nextCursor;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final String searchTerm;
 
   const ProductsState({
     this.products = const [],
@@ -27,6 +31,10 @@ class ProductsState {
     this.isUpdating = false,
     this.isDeleting = false,
     this.errorMessage,
+    this.nextCursor,
+    this.hasMore = true,
+    this.isLoadingMore = false,
+    this.searchTerm = '',
   });
 
   ProductsState copyWith({
@@ -36,6 +44,10 @@ class ProductsState {
     bool? isUpdating,
     bool? isDeleting,
     String? errorMessage,
+    String? nextCursor,
+    bool? hasMore,
+    bool? isLoadingMore,
+    String? searchTerm,
   }) {
     return ProductsState(
       products: products ?? this.products,
@@ -44,18 +56,22 @@ class ProductsState {
       isUpdating: isUpdating ?? this.isUpdating,
       isDeleting: isDeleting ?? this.isDeleting,
       errorMessage: errorMessage ?? this.errorMessage,
+      nextCursor: nextCursor ?? this.nextCursor,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      searchTerm: searchTerm ?? this.searchTerm,
     );
   }
 }
 
 class ProductsNotifier extends StateNotifier<ProductsState> {
-  final GetProductsUseCase _getProductsUseCase;
+  final GetProductsPageUseCase _getProductsPageUseCase;
   final CreateProductUseCase _createProductUseCase;
   final UpdateProductUseCase _updateProductUseCase;
   final DeleteProductUseCase _deleteProductUseCase;
 
   ProductsNotifier(
-    this._getProductsUseCase,
+    this._getProductsPageUseCase,
     this._createProductUseCase,
     this._updateProductUseCase,
     this._deleteProductUseCase,
@@ -67,11 +83,43 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final products = await _getProductsUseCase.call();
-      state = state.copyWith(products: products, isLoading: false);
+      final page = await _getProductsPageUseCase.call(
+        searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+      );
+      state = ProductsState(
+        products: page.items,
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+        searchTerm: state.searchTerm,
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
+  }
+
+  Future<void> loadMore() async {
+    if (state.isLoadingMore || !state.hasMore) return;
+
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final page = await _getProductsPageUseCase.call(
+        cursor: state.nextCursor,
+        searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+      );
+      state = state.copyWith(
+        products: [...state.products, ...page.items],
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+        isLoadingMore: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoadingMore: false, errorMessage: e.toString());
+    }
+  }
+
+  Future<void> search(String term) async {
+    state = ProductsState(searchTerm: term, isLoading: true);
+    await fetchProducts();
   }
 
   Future<Product?> createProduct(CreateProductRequest request) async {
@@ -145,13 +193,13 @@ final productsProvider = StateNotifierProvider<ProductsNotifier, ProductsState>(
     final remoteDataSource = ProductsRemoteDataSourceImpl(firestore);
     final repository = ProductsRepositoryImpl(remoteDataSource, storage);
 
-    final getProductsUseCase = GetProductsUseCase(repository);
+    final getProductsPageUseCase = GetProductsPageUseCase(repository);
     final createProductUseCase = CreateProductUseCase(repository);
     final updateProductUseCase = UpdateProductUseCase(repository);
     final deleteProductUseCase = DeleteProductUseCase(repository);
 
     return ProductsNotifier(
-      getProductsUseCase,
+      getProductsPageUseCase,
       createProductUseCase,
       updateProductUseCase,
       deleteProductUseCase,

@@ -1,8 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../models/product_migration_helper.dart';
 import '../models/product_model.dart';
 
 abstract class ProductsRemoteDataSource {
+  Future<PaginatedFetchResult<ProductModel>> getProductsPage({
+    String? cursor,
+    String? searchTerm,
+  });
   Future<List<ProductModel>> getAllProducts();
   Future<List<ProductModel>> getProductsByCategory(String categoryId);
   Future<List<ProductModel>> getProductsByPromo(String promoId);
@@ -20,6 +25,19 @@ class ProductsRemoteDataSourceImpl implements ProductsRemoteDataSource {
   final FirebaseFirestore _firestore;
 
   ProductsRemoteDataSourceImpl(this._firestore);
+
+  @override
+  Future<PaginatedFetchResult<ProductModel>> getProductsPage({
+    String? cursor,
+    String? searchTerm,
+  }) {
+    return fetchPaginatedPage<ProductModel>(
+      functionName: 'getProductsPage',
+      fromMap: (map) => ProductModel.fromMap(map, map['id'] as String),
+      cursor: cursor,
+      searchTerm: searchTerm,
+    );
+  }
 
   @override
   Future<List<ProductModel>> getAllProducts() async {

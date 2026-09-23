@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../domain/entities/order_entities.dart';
-import '../../domain/entities/user_entities.dart';
 import '../providers/order_provider.dart';
 import 'order_details_screen.dart'; // Add this import
 
@@ -19,13 +18,32 @@ class OrdersScreen extends ConsumerStatefulWidget {
 
 class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
   OrderStatus? _selectedStatusFilter;
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
+    _searchController.addListener(() => setState(() {}));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(adminOrderProvider.notifier).fetchAllOrders();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      ref.read(adminOrderProvider.notifier).loadMore();
+    }
   }
 
   @override
@@ -44,10 +62,39 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildTopBar(filteredOrders.length, adminOrderState.users.length),
-            const SizedBox(height: 24),
+            _buildTopBar(filteredOrders.length, adminOrderState.usersCount),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _searchController,
+              onSubmitted: (value) => ref
+                  .read(adminOrderProvider.notifier)
+                  .search(value.trim()),
+              decoration: InputDecoration(
+                hintText: 'Search orders by customer email...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          ref.read(adminOrderProvider.notifier).search('');
+                        },
+                      ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 16),
             Expanded(
-              child: _buildOrdersTable(filteredOrders, adminOrderState),
+              child: _buildOrdersTable(
+                filteredOrders,
+                adminOrderState,
+                _scrollController,
+              ),
             ),
           ],
         ),
@@ -173,7 +220,11 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
-  Widget _buildOrdersTable(List<Order> orders, AdminOrderState state) {
+  Widget _buildOrdersTable(
+    List<Order> orders,
+    AdminOrderState state,
+    ScrollController scrollController,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -266,9 +317,17 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
                     ),
                   )
                 : ListView.builder(
-                    itemCount: orders.length,
-                    itemBuilder: (context, index) =>
-                        _buildOrderRow(orders[index], state.isUpdating),
+                    controller: scrollController,
+                    itemCount: orders.length + (state.isLoadingMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index >= orders.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      return _buildOrderRow(orders[index], state.isUpdating);
+                    },
                   ),
           ),
         ],

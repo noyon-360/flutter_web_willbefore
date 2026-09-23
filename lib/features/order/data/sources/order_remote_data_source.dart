@@ -2,11 +2,16 @@ import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutx_core/flutx_core.dart';
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../../domain/entities/order_entities.dart';
 import '../models/order_model.dart';
 
 abstract class OrderRemoteDataSource {
   // Future<void> createOrder(Order order);
+  Future<PaginatedFetchResult<Order>> getOrdersPage({
+    String? cursor,
+    String? searchTerm,
+  });
   Future<List<Order>> getUserOrders(String userId);
   Stream<List<Order>> getUserOrdersStream(String userId);
   Future<List<Order>> getAllOrders();
@@ -32,6 +37,19 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
 
   OrderRemoteDataSourceImpl({FirebaseFirestore? firestore, FirebaseAuth? auth})
     : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  @override
+  Future<PaginatedFetchResult<Order>> getOrdersPage({
+    String? cursor,
+    String? searchTerm,
+  }) {
+    return fetchPaginatedPage<Order>(
+      functionName: 'getOrdersPage',
+      fromMap: (map) => OrderModel.fromMap(map, map['id'] as String).toEntity(),
+      cursor: cursor,
+      searchTerm: searchTerm,
+    );
+  }
 
   // @override
   // Future<void> createOrder(Order order) async {

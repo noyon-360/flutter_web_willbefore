@@ -17,3 +17,10 @@ exports.sendProductNotification =
 exports.sendSubscriptionNotification =
   require("./controllers/subscription").sendSubscriptionNotification;
 
+const paginatedLists = require("./controllers/paginated_lists");
+exports.getUsersPage = paginatedLists.getUsersPage;
+exports.getProductsPage = paginatedLists.getProductsPage;
+exports.getCategoriesPage = paginatedLists.getCategoriesPage;
+exports.getPromosPage = paginatedLists.getPromosPage;
+exports.getOrdersPage = paginatedLists.getOrdersPage;
+

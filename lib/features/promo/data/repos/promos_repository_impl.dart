@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../../domain/models/promo_model.dart';
 import '../../domain/repos/promo_reposotory.dart';
 import '../../domain/requests/create_promo_request.dart';
@@ -12,6 +13,14 @@ class PromosRepositoryImpl implements PromosRepository {
   final PromosRemoteDataSource remoteDataSource;
 
   PromosRepositoryImpl(this.remoteDataSource);
+
+  @override
+  Future<PaginatedFetchResult<PromoModel>> getPromosPage({
+    String? cursor,
+    String? searchTerm,
+  }) {
+    return remoteDataSource.getPromosPage(cursor: cursor, searchTerm: searchTerm);
+  }
 
   @override
   Future<List<PromoModel>> getPromos() async {

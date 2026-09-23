@@ -18,6 +18,31 @@ class ProductListScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductListScreenState extends ConsumerState<ProductListScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _searchController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      ref.read(productsProvider.notifier).loadMore();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final productsState = ref.watch(productsProvider);
@@ -57,7 +82,34 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
             ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+
+          // Search
+          TextField(
+            controller: _searchController,
+            onSubmitted: (value) =>
+                ref.read(productsProvider.notifier).search(value.trim()),
+            decoration: InputDecoration(
+              hintText: 'Search products by title...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        ref.read(productsProvider.notifier).search('');
+                      },
+                    ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+          ),
+
+          const SizedBox(height: 16),
 
           // Products Table
           Expanded(
@@ -191,8 +243,22 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                   else
                     Expanded(
                       child: ListView.builder(
-                        itemCount: products.length,
+                        controller: _scrollController,
+                        itemCount:
+                            products.length +
+                            (productsState.isLoadingMore ? 1 : 0),
                         itemBuilder: (context, index) {
+                          if (index >= products.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primaryLaurel,
+                                ),
+                              ),
+                            );
+                          }
+
                           final product = products[index];
                           final isLast = index == products.length - 1;
 

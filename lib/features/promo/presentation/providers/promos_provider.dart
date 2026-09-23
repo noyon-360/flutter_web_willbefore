@@ -17,6 +17,16 @@ class PromosState extends BaseState {
   final bool isUpdating;
   final bool isDeleting;
 
+  // Paginated results for the admin promo management table. `promos` above
+  // stays reserved for the (small, filtered) active/non-expired dropdown
+  // used when attaching a promo to a product.
+  final List<PromoModel> adminPromos;
+  final bool isLoadingAdmin;
+  final String? nextCursor;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final String searchTerm;
+
   const PromosState({
     super.isLoading = true,
     super.errorMessage,
@@ -26,6 +36,12 @@ class PromosState extends BaseState {
     this.isCreating = false,
     this.isUpdating = false,
     this.isDeleting = false,
+    this.adminPromos = const [],
+    this.isLoadingAdmin = true,
+    this.nextCursor,
+    this.hasMore = true,
+    this.isLoadingMore = false,
+    this.searchTerm = '',
   });
 
   @override
@@ -38,6 +54,12 @@ class PromosState extends BaseState {
     bool? isCreating,
     bool? isUpdating,
     bool? isDeleting,
+    List<PromoModel>? adminPromos,
+    bool? isLoadingAdmin,
+    String? nextCursor,
+    bool? hasMore,
+    bool? isLoadingMore,
+    String? searchTerm,
   }) {
     return PromosState(
       isLoading: isLoading ?? this.isLoading,
@@ -48,6 +70,12 @@ class PromosState extends BaseState {
       isCreating: isCreating ?? this.isCreating,
       isUpdating: isUpdating ?? this.isUpdating,
       isDeleting: isDeleting ?? this.isDeleting,
+      adminPromos: adminPromos ?? this.adminPromos,
+      isLoadingAdmin: isLoadingAdmin ?? this.isLoadingAdmin,
+      nextCursor: nextCursor ?? this.nextCursor,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      searchTerm: searchTerm ?? this.searchTerm,
     );
   }
 }
@@ -57,12 +85,14 @@ final promosProvider = StateNotifierProvider<PromosProvider, PromosState>((
 ) {
   final repository = ref.watch(promosRepositoryProvider);
   final getPromosUseCase = GetPromosUseCase(repository);
+  final getPromosPageUseCase = GetPromosPageUseCase(repository);
   final createPromoUseCase = CreatePromoUseCase(repository);
   final updatePromoUseCase = UpdatePromoUseCase(repository);
   final deletePromoUseCase = DeletePromoUseCase(repository);
 
   return PromosProvider(
     getPromosUseCase,
+    getPromosPageUseCase,
     createPromoUseCase,
     updatePromoUseCase,
     deletePromoUseCase,
@@ -71,18 +101,67 @@ final promosProvider = StateNotifierProvider<PromosProvider, PromosState>((
 
 class PromosProvider extends StateNotifier<PromosState> {
   final GetPromosUseCase _getPromosUseCase;
+  final GetPromosPageUseCase _getPromosPageUseCase;
   final CreatePromoUseCase _createPromoUseCase;
   final UpdatePromoUseCase _updatePromoUseCase;
   final DeletePromoUseCase _deletePromoUseCase;
 
   PromosProvider(
     this._getPromosUseCase,
+    this._getPromosPageUseCase,
     this._createPromoUseCase,
     this._updatePromoUseCase,
     this._deletePromoUseCase,
   ) : super(const PromosState()) {
-    // loadPromos();
     _listenToPromos();
+    loadAdminPromos();
+  }
+
+  Future<void> loadAdminPromos() async {
+    state = state.copyWith(isLoadingAdmin: true);
+    try {
+      final page = await _getPromosPageUseCase.call(
+        searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+      );
+      state = state.copyWith(
+        adminPromos: page.items,
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+        isLoadingAdmin: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoadingAdmin: false, errorMessage: e.toString());
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (state.isLoadingMore || !state.hasMore) return;
+
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final page = await _getPromosPageUseCase.call(
+        cursor: state.nextCursor,
+        searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+      );
+      state = state.copyWith(
+        adminPromos: [...state.adminPromos, ...page.items],
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+        isLoadingMore: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoadingMore: false, errorMessage: e.toString());
+    }
+  }
+
+  Future<void> search(String term) async {
+    state = state.copyWith(
+      searchTerm: term,
+      adminPromos: [],
+      nextCursor: null,
+      hasMore: true,
+    );
+    await loadAdminPromos();
   }
 
   void _listenToPromos() {
@@ -133,8 +212,11 @@ class PromosProvider extends StateNotifier<PromosState> {
   Future<bool> createPromo(CreatePromoRequest request) async {
     state = state.copyWith(isCreating: true, errorMessage: null);
     try {
-      await _createPromoUseCase.call(request);
-      state = state.copyWith(isCreating: false);
+      final promo = await _createPromoUseCase.call(request);
+      state = state.copyWith(
+        isCreating: false,
+        adminPromos: [promo, ...state.adminPromos],
+      );
       return true;
     } catch (e) {
       state = state.copyWith(isCreating: false, errorMessage: e.toString());
@@ -145,8 +227,13 @@ class PromosProvider extends StateNotifier<PromosState> {
   Future<bool> updatePromo(UpdatePromoRequest request) async {
     state = state.copyWith(isUpdating: true, errorMessage: null);
     try {
-      await _updatePromoUseCase.call(request);
-      state = state.copyWith(isUpdating: false);
+      final updated = await _updatePromoUseCase.call(request);
+      state = state.copyWith(
+        isUpdating: false,
+        adminPromos: state.adminPromos
+            .map((p) => p.id == updated.id ? updated : p)
+            .toList(),
+      );
       return true;
     } catch (e) {
       state = state.copyWith(isUpdating: false, errorMessage: e.toString());
@@ -158,7 +245,10 @@ class PromosProvider extends StateNotifier<PromosState> {
     state = state.copyWith(isDeleting: true, errorMessage: null);
     try {
       await _deletePromoUseCase.call(id);
-      state = state.copyWith(isDeleting: false);
+      state = state.copyWith(
+        isDeleting: false,
+        adminPromos: state.adminPromos.where((p) => p.id != id).toList(),
+      );
       return true;
     } catch (e) {
       state = state.copyWith(isDeleting: false, errorMessage: e.toString());

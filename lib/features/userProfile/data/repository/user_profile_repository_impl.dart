@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../../../order/data/models/user_model.dart';
 import '../../domain/repository/user_profile_repository.dart';
 
@@ -9,15 +10,16 @@ class AllUserProfileRepositorImpl implements AllUserProfileRepository {
   AllUserProfileRepositorImpl(this._firestore);
 
   @override
-  Stream<List<UserModel>> getUsers() {
-    return _firestore
-        .collection('users')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList(),
-        );
+  Future<PaginatedFetchResult<UserModel>> getUsersPage({
+    String? cursor,
+    String? searchTerm,
+  }) {
+    return fetchPaginatedPage<UserModel>(
+      functionName: 'getUsersPage',
+      fromMap: UserModel.fromMap,
+      cursor: cursor,
+      searchTerm: searchTerm,
+    );
   }
 
   @override

@@ -15,6 +15,10 @@ class CategoriesState extends BaseState {
   final bool isCreating;
   final bool isUpdating;
   final bool isDeleting;
+  final String? nextCursor;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final String searchTerm;
 
   const CategoriesState({
     super.isLoading = false,
@@ -23,6 +27,10 @@ class CategoriesState extends BaseState {
     this.isCreating = false,
     this.isUpdating = false,
     this.isDeleting = false,
+    this.nextCursor,
+    this.hasMore = true,
+    this.isLoadingMore = false,
+    this.searchTerm = '',
   });
 
   @override
@@ -33,6 +41,10 @@ class CategoriesState extends BaseState {
     bool? isCreating,
     bool? isUpdating,
     bool? isDeleting,
+    String? nextCursor,
+    bool? hasMore,
+    bool? isLoadingMore,
+    String? searchTerm,
   }) {
     return CategoriesState(
       isLoading: isLoading ?? this.isLoading,
@@ -41,6 +53,10 @@ class CategoriesState extends BaseState {
       isCreating: isCreating ?? this.isCreating,
       isUpdating: isUpdating ?? this.isUpdating,
       isDeleting: isDeleting ?? this.isDeleting,
+      nextCursor: nextCursor ?? this.nextCursor,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      searchTerm: searchTerm ?? this.searchTerm,
     );
   }
 }
@@ -48,13 +64,13 @@ class CategoriesState extends BaseState {
 final categoriesProvider =
     StateNotifierProvider<CategoriesProvider, CategoriesState>((ref) {
       final repository = ref.watch(categoriesRepositoryProvider);
-      final getCategoriesUseCase = GetCategoriesUseCase(repository);
+      final getCategoriesPageUseCase = GetCategoriesPageUseCase(repository);
       final createCategoryUseCase = CreateCategoryUseCase(repository);
       final updateCategoryUseCase = UpdateCategoryUseCase(repository);
       final deleteCategoryUseCase = DeleteCategoryUseCase(repository);
 
       return CategoriesProvider(
-        getCategoriesUseCase,
+        getCategoriesPageUseCase,
         createCategoryUseCase,
         updateCategoryUseCase,
         deleteCategoryUseCase,
@@ -62,50 +78,70 @@ final categoriesProvider =
     });
 
 class CategoriesProvider extends StateNotifier<CategoriesState> {
-  final GetCategoriesUseCase _getCategoriesUseCase;
+  final GetCategoriesPageUseCase _getCategoriesPageUseCase;
   final CreateCategoryUseCase _createCategoryUseCase;
   final UpdateCategoryUseCase _updateCategoryUseCase;
   final DeleteCategoryUseCase _deleteCategoryUseCase;
 
   CategoriesProvider(
-    this._getCategoriesUseCase,
+    this._getCategoriesPageUseCase,
     this._createCategoryUseCase,
     this._updateCategoryUseCase,
     this._deleteCategoryUseCase,
   ) : super(const CategoriesState()) {
     loadCategories();
-    _listenToCategories();
-  }
-
-  void _listenToCategories() {
-    _getCategoriesUseCase.stream().listen(
-      (categories) {
-        state = state.copyWith(categories: categories, isLoading: false);
-      },
-      onError: (error) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: error.toString(),
-        );
-      },
-    );
   }
 
   Future<void> loadCategories() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final categories = await _getCategoriesUseCase.call();
-      state = state.copyWith(categories: categories, isLoading: false);
+      final page = await _getCategoriesPageUseCase.call(
+        searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+      );
+      state = CategoriesState(
+        categories: page.items,
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+        searchTerm: state.searchTerm,
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
 
+  Future<void> loadMore() async {
+    if (state.isLoadingMore || !state.hasMore) return;
+
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final page = await _getCategoriesPageUseCase.call(
+        cursor: state.nextCursor,
+        searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+      );
+      state = state.copyWith(
+        categories: [...state.categories, ...page.items],
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+        isLoadingMore: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoadingMore: false, errorMessage: e.toString());
+    }
+  }
+
+  Future<void> search(String term) async {
+    state = CategoriesState(searchTerm: term, isLoading: true);
+    await loadCategories();
+  }
+
   Future<bool> createCategory(CreateCategoryRequest request) async {
     state = state.copyWith(isCreating: true, errorMessage: null);
     try {
-      await _createCategoryUseCase.call(request);
-      state = state.copyWith(isCreating: false);
+      final category = await _createCategoryUseCase.call(request);
+      state = state.copyWith(
+        isCreating: false,
+        categories: [category, ...state.categories],
+      );
       return true;
     } catch (e) {
       state = state.copyWith(isCreating: false, errorMessage: e.toString());
@@ -116,8 +152,13 @@ class CategoriesProvider extends StateNotifier<CategoriesState> {
   Future<bool> updateCategory(UpdateCategoryRequest request) async {
     state = state.copyWith(isUpdating: true, errorMessage: null);
     try {
-      await _updateCategoryUseCase.call(request);
-      state = state.copyWith(isUpdating: false);
+      final updated = await _updateCategoryUseCase.call(request);
+      state = state.copyWith(
+        isUpdating: false,
+        categories: state.categories
+            .map((c) => c.id == updated.id ? updated : c)
+            .toList(),
+      );
       return true;
     } catch (e) {
       state = state.copyWith(isUpdating: false, errorMessage: e.toString());
@@ -129,7 +170,10 @@ class CategoriesProvider extends StateNotifier<CategoriesState> {
     state = state.copyWith(isDeleting: true, errorMessage: null);
     try {
       await _deleteCategoryUseCase.call(id);
-      state = state.copyWith(isDeleting: false);
+      state = state.copyWith(
+        isDeleting: false,
+        categories: state.categories.where((c) => c.id != id).toList(),
+      );
       return true;
     } catch (e) {
       state = state.copyWith(isDeleting: false, errorMessage: e.toString());

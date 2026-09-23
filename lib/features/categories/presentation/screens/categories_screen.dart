@@ -17,6 +17,31 @@ class CategoriesScreen extends ConsumerStatefulWidget {
 }
 
 class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _searchController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      ref.read(categoriesProvider.notifier).loadMore();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final categoriesState = ref.watch(categoriesProvider);
@@ -56,7 +81,34 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+
+          // Search
+          TextField(
+            controller: _searchController,
+            onSubmitted: (value) =>
+                ref.read(categoriesProvider.notifier).search(value.trim()),
+            decoration: InputDecoration(
+              hintText: 'Search categories by name...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        ref.read(categoriesProvider.notifier).search('');
+                      },
+                    ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+          ),
+
+          const SizedBox(height: 16),
 
           // Categories Table
           Expanded(
@@ -155,8 +207,22 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                   else
                     Expanded(
                       child: ListView.builder(
-                        itemCount: categories.length,
+                        controller: _scrollController,
+                        itemCount:
+                            categories.length +
+                            (categoriesState.isLoadingMore ? 1 : 0),
                         itemBuilder: (context, index) {
+                          if (index >= categories.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primaryLaurel,
+                                ),
+                              ),
+                            );
+                          }
+
                           final category = categories[index];
                           final isLast = index == categories.length - 1;
 

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../../domain/models/category_model.dart';
 import '../../domain/repos/categories_repo.dart';
 import '../../domain/requests/create_category_request.dart';
@@ -12,6 +13,17 @@ class CategoriesRepositoryImpl implements CategoriesRepository {
   final CategoriesRemoteDataSource remoteDataSource;
 
   CategoriesRepositoryImpl(this.remoteDataSource);
+
+  @override
+  Future<PaginatedFetchResult<CategoryModel>> getCategoriesPage({
+    String? cursor,
+    String? searchTerm,
+  }) {
+    return remoteDataSource.getCategoriesPage(
+      cursor: cursor,
+      searchTerm: searchTerm,
+    );
+  }
 
   @override
   Future<List<CategoryModel>> getCategories() async {

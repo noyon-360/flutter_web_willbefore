@@ -15,17 +15,41 @@ class AllUserProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _searchController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      ref.read(userProvider.notifier).loadMore();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userState = ref.watch(userProvider);
-    final users = userState.users;
 
     // Get the current user
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?.id;
 
     // Filter out the current user and admin roles
-    final filteredUsers = users.where((user) {
+    final filteredUsers = userState.users.where((user) {
       return user.id != currentUserId && user.role != 'admin';
     }).toList();
 
@@ -101,6 +125,32 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
             ),
           ),
           const SizedBox(height: 24),
+
+          // Search
+          TextField(
+            controller: _searchController,
+            onSubmitted: (value) =>
+                ref.read(userProvider.notifier).search(value.trim()),
+            decoration: InputDecoration(
+              hintText: 'Search users by email...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        ref.read(userProvider.notifier).search('');
+                      },
+                    ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
 
           // Add User Button - Beautiful & Prominent
           // Align(
@@ -226,7 +276,7 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                         ),
                       ),
                     )
-                  else if (users.isEmpty)
+                  else if (filteredUsers.isEmpty)
                     const Expanded(
                       child: Center(
                         child: Column(
@@ -252,8 +302,22 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                   else
                     Expanded(
                       child: ListView.builder(
-                        itemCount: filteredUsers.length,
+                        controller: _scrollController,
+                        itemCount:
+                            filteredUsers.length +
+                            (userState.isLoadingMore ? 1 : 0),
                         itemBuilder: (context, index) {
+                          if (index >= filteredUsers.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primaryLaurel,
+                                ),
+                              ),
+                            );
+                          }
+
                           final user = filteredUsers[index];
                           final isLast = index == filteredUsers.length - 1;
 

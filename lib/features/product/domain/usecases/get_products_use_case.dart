@@ -1,5 +1,19 @@
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../entrity/product.dart';
 import '../repos/product_repository.dart';
+
+class GetProductsPageUseCase {
+  final ProductsRepository _repository;
+
+  GetProductsPageUseCase(this._repository);
+
+  Future<PaginatedFetchResult<Product>> call({
+    String? cursor,
+    String? searchTerm,
+  }) {
+    return _repository.getProductsPage(cursor: cursor, searchTerm: searchTerm);
+  }
+}
 
 class GetProductsUseCase {
   final ProductsRepository _repository;

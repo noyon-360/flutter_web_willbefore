@@ -25,4 +25,9 @@ class UserRepositoryImpl implements UserProfileRepository {
     final userModel = await _remoteDataSource.getUserById(userId);
     return userModel?.toEntity();
   }
+
+  @override
+  Future<int> getActiveUsersCount() {
+    return _remoteDataSource.getActiveUsersCount();
+  }
 }

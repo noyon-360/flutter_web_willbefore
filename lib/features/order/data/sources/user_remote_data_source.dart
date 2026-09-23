@@ -45,6 +45,21 @@ class UserRemoteDataSource {
       throw Exception('Failed to fetch user: $e');
     }
   }
+
+  /// A cheap server-side aggregate count (1 read regardless of collection
+  /// size), used where only the total is needed rather than the full list.
+  Future<int> getActiveUsersCount() async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .where('isActive', isEqualTo: true)
+          .count()
+          .get();
+      return snapshot.count ?? 0;
+    } catch (e) {
+      throw Exception('Failed to count users: $e');
+    }
+  }
 }
 
 final userRemoteDataSourceProvider = Provider<UserRemoteDataSource>((ref) {

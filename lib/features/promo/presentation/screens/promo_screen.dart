@@ -14,10 +14,35 @@ class PromosScreen extends ConsumerStatefulWidget {
 }
 
 class _PromosScreenState extends ConsumerState<PromosScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _searchController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      ref.read(promosProvider.notifier).loadMore();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final promosState = ref.watch(promosProvider);
-    final promos = promosState.promos;
+    final promos = promosState.adminPromos;
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -53,7 +78,34 @@ class _PromosScreenState extends ConsumerState<PromosScreen> {
             ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+
+          // Search
+          TextField(
+            controller: _searchController,
+            onSubmitted: (value) =>
+                ref.read(promosProvider.notifier).search(value.trim()),
+            decoration: InputDecoration(
+              hintText: 'Search promos by title...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        ref.read(promosProvider.notifier).search('');
+                      },
+                    ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+          ),
+
+          const SizedBox(height: 16),
 
           // Promos Table
           Expanded(
@@ -128,7 +180,7 @@ class _PromosScreenState extends ConsumerState<PromosScreen> {
                   ),
 
                   // Table Body
-                  if (promosState.isLoading)
+                  if (promosState.isLoadingAdmin)
                     const Expanded(
                       child: Center(
                         child: CircularProgressIndicator(
@@ -162,8 +214,22 @@ class _PromosScreenState extends ConsumerState<PromosScreen> {
                   else
                     Expanded(
                       child: ListView.builder(
-                        itemCount: promos.length,
+                        controller: _scrollController,
+                        itemCount:
+                            promos.length +
+                            (promosState.isLoadingMore ? 1 : 0),
                         itemBuilder: (context, index) {
+                          if (index >= promos.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primaryLaurel,
+                                ),
+                              ),
+                            );
+                          }
+
                           final promo = promos[index];
                           final isLast = index == promos.length - 1;
 

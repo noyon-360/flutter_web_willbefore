@@ -2,6 +2,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_web_willbefore/features/product/domain/repos/product_repository.dart' show ProductsRepository;
 import 'dart:typed_data';
 
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../../domain/entrity/product.dart';
 import '../models/product_model.dart';
 import '../../domain/requests/create_product_request.dart';
@@ -13,6 +14,26 @@ class ProductsRepositoryImpl implements ProductsRepository {
   final FirebaseStorage _storage;
 
   ProductsRepositoryImpl(this._remoteDataSource, this._storage);
+
+  @override
+  Future<PaginatedFetchResult<Product>> getProductsPage({
+    String? cursor,
+    String? searchTerm,
+  }) async {
+    try {
+      final page = await _remoteDataSource.getProductsPage(
+        cursor: cursor,
+        searchTerm: searchTerm,
+      );
+      return PaginatedFetchResult<Product>(
+        items: page.items.map((model) => model.toEntity()).toList(),
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+      );
+    } catch (e) {
+      throw Exception('Failed to get products page: $e');
+    }
+  }
 
   @override
   Future<List<Product>> getAllProducts() async {

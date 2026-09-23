@@ -1,5 +1,19 @@
+import '../../../../core/pagination/paginated_fetch.dart';
 import '../models/promo_model.dart';
 import '../repos/promo_reposotory.dart';
+
+class GetPromosPageUseCase {
+  final PromosRepository repository;
+
+  GetPromosPageUseCase(this.repository);
+
+  Future<PaginatedFetchResult<PromoModel>> call({
+    String? cursor,
+    String? searchTerm,
+  }) {
+    return repository.getPromosPage(cursor: cursor, searchTerm: searchTerm);
+  }
+}
 
 class GetPromosUseCase {
   final PromosRepository repository;
