@@ -14,6 +14,7 @@ import '../../features/overview/presentation/screens/overview_screen.dart';
 import '../../features/product/presentation/screens/add_product_screen.dart';
 import '../../features/product/presentation/screens/edit_product_screen.dart';
 import '../../features/product/presentation/screens/product_list_screen.dart';
+import '../../features/product/presentation/screens/product_view_screen.dart';
 import '../../features/promo/presentation/screens/add_promo_screen.dart';
 import '../../features/promo/presentation/screens/promo_screen.dart';
 import '../../features/setting/presentation/screens/admin_setting_screen.dart';
@@ -21,6 +22,9 @@ import '../../features/userProfile/presentation/screens/user_profile_screen.dart
 import '../../features/userProfile/presentation/screens/user_detail_screen.dart';
 import '../../features/order/data/models/user_model.dart';
 import '../../features/notifications/presentation/screens/notification_screen.dart';
+import '../../features/support_chat/presentation/screens/support_chat_detail_screen.dart';
+import '../../features/support_chat/presentation/screens/support_chat_list_screen.dart';
+import '../../models/chat_model.dart';
 
 part 'app_router.dart';
 
@@ -58,6 +62,12 @@ class RouteEndpoint {
   static const String userDetails = 'user-details/:id';
   static const String settings = '/settings';
   static const String notifications = '/notifications';
+
+  // Support chat routes
+  static const String supportChats = '/support-chats';
+  static const String supportChatDetail = ':chatId';
+  static String supportChatDetailPath(String chatId) =>
+      '/support-chats/$chatId';
 
   // Error routes
   static const String notFound = '/not-found';

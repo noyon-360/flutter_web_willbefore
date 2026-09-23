@@ -19,6 +19,9 @@ exports.sendProductNotification =
 exports.sendSubscriptionNotification =
   require("./controllers/subscription").sendSubscriptionNotification;
 
+exports.onChatMessageCreated =
+  require("./controllers/chat_notifications").onChatMessageCreated;
+
 const paginatedLists = require("./controllers/paginated_lists");
 exports.getUsersPage = paginatedLists.getUsersPage;
 exports.getProductsPage = paginatedLists.getProductsPage;

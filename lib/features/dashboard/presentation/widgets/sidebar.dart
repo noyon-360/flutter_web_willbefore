@@ -5,8 +5,10 @@ import 'package:flutter_web_willbefore/core/routes/route_endpoint.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../../models/chat_model.dart';
 import '../../../../models/dashboard_models.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../support_chat/presentation/providers/support_chat_provider.dart';
 
 class Sidebar extends ConsumerWidget {
   final NavigationItem selectedItem;
@@ -20,6 +22,13 @@ class Sidebar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final unreadChatCount = ref.watch(openChatsProvider).maybeWhen(
+          data: (chats) => chats
+              .where((c) => c.unreadForAdmin && c.status == ChatStatus.open)
+              .length,
+          orElse: () => 0,
+        );
+
     return Material(
       color: Colors.white,
       child: SizedBox(
@@ -98,6 +107,12 @@ class Sidebar extends ConsumerWidget {
                     title: 'Setting',
                     item: NavigationItem.settings,
                   ),
+                  _buildNavItem(
+                    icon: Icons.chat_bubble_outline,
+                    title: 'Messages',
+                    item: NavigationItem.messages,
+                    badgeCount: unreadChatCount,
+                  ),
                   /*
                 _buildNavItem(
                   icon: Icons.notifications_outlined,
@@ -134,6 +149,7 @@ class Sidebar extends ConsumerWidget {
     required IconData icon,
     required String title,
     required NavigationItem item,
+    int badgeCount = 0,
   }) {
     final isSelected = selectedItem == item;
 
@@ -151,6 +167,23 @@ class Sidebar extends ConsumerWidget {
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
+        trailing: badgeCount > 0
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  badgeCount > 9 ? '9+' : '$badgeCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
+            : null,
         selected: isSelected,
         // selectedTileColor: AppColors.primaryLaurel,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

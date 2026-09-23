@@ -267,7 +267,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                           return InkWell(
                             onTap: () {
                               context.go(
-                                '${RouteEndpoint.products}/edit/${product.id}',
+                                '${RouteEndpoint.products}/view/${product.id}',
                               );
                             },
                             child: Container(

@@ -71,5 +71,6 @@ enum NavigationItem {
   promo,
   userProfile,
   settings,
+  messages,
   // notifications,
 }

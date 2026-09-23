@@ -84,6 +84,14 @@ class AppRouter {
                   return EditProductScreen(productId: productId);
                 },
               ),
+              GoRoute(
+                path: 'view/:id',
+                name: 'view-product',
+                builder: (context, state) {
+                  final productId = state.pathParameters['id']!;
+                  return ProductViewScreen(productId: productId);
+                },
+              ),
             ],
           ),
           GoRoute(
@@ -154,6 +162,26 @@ class AppRouter {
             path: RouteEndpoint.notifications,
             name: 'notifications',
             builder: (context, state) => const NotificationScreen(),
+          ),
+          GoRoute(
+            path: RouteEndpoint.supportChats,
+            name: 'support-chats',
+            builder: (context, state) => const SupportChatListScreen(),
+            routes: [
+              GoRoute(
+                path: RouteEndpoint
+                    .supportChatDetail, // ':chatId' -> '/support-chats/:chatId'
+                name: 'support-chat-detail',
+                builder: (context, state) {
+                  final chatId = state.pathParameters['chatId']!;
+                  final chat = state.extra as ChatModel?;
+                  return SupportChatDetailScreen(
+                    chatId: chatId,
+                    initialChat: chat,
+                  );
+                },
+              ),
+            ],
           ),
         ],
       ),
