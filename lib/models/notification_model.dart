@@ -16,6 +16,8 @@ class NotificationModel {
   final NotificationType type;
   final String? imageUrl;
   final Map<String, dynamic>? metadata;
+  final String? orderId;
+  final String? trackingNumber;
 
   NotificationModel({
     required this.id,
@@ -26,6 +28,8 @@ class NotificationModel {
     required this.type,
     this.imageUrl,
     this.metadata,
+    this.orderId,
+    this.trackingNumber,
   });
 
   factory NotificationModel.fromFirestore(DocumentSnapshot doc) {
@@ -38,7 +42,11 @@ class NotificationModel {
       read: data['read'] ?? false,
       type: _parseType(data['type']),
       imageUrl: data['imageUrl'],
-      metadata: data['metadata'],
+      metadata: data['metadata'] != null
+          ? Map<String, dynamic>.from(data['metadata'])
+          : null,
+      orderId: data['orderId'],
+      trackingNumber: data['tracking_number'],
     );
   }
 
@@ -51,6 +59,8 @@ class NotificationModel {
       'type': type.name,
       'imageUrl': imageUrl,
       'metadata': metadata,
+      if (orderId != null) 'orderId': orderId,
+      if (trackingNumber != null) 'tracking_number': trackingNumber,
     };
   }
 
@@ -59,8 +69,10 @@ class NotificationModel {
       case 'new_product':
         return NotificationType.new_product;
       case 'orderShipped':
+      case 'order_shipped':
         return NotificationType.orderShipped;
       case 'orderRefunded':
+      case 'order_refunded':
         return NotificationType.orderRefunded;
       default:
         return NotificationType.general;
@@ -76,6 +88,8 @@ class NotificationModel {
     NotificationType? type,
     String? imageUrl,
     Map<String, dynamic>? metadata,
+    String? orderId,
+    String? trackingNumber,
   }) {
     return NotificationModel(
       id: id ?? this.id,
@@ -86,6 +100,8 @@ class NotificationModel {
       type: type ?? this.type,
       imageUrl: imageUrl ?? this.imageUrl,
       metadata: metadata ?? this.metadata,
+      orderId: orderId ?? this.orderId,
+      trackingNumber: trackingNumber ?? this.trackingNumber,
     );
   }
 }
