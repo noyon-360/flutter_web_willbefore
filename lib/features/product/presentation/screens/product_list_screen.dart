@@ -479,7 +479,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                                         ),
                                         IconButton(
                                           onPressed: () =>
-                                              sendProductNotification(
+                                              confirmAndSendProductNotification(
                                                 context,
                                                 product,
                                               ),

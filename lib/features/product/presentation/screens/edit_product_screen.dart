@@ -2103,7 +2103,8 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => sendProductNotification(context, product!),
+              onPressed: () =>
+                  confirmAndSendProductNotification(context, product!),
               icon: const Icon(Icons.notifications_active, color: Colors.white),
               label: const Text(
                 'Notify Users About Product',

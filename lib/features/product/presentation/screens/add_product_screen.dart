@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,14 +9,11 @@ import 'package:html_editor_enhanced/html_editor.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/routes/route_endpoint.dart';
-import '../../../../models/notification_model.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../categories/presentation/providers/categories_provider.dart';
 import '../../../promo/presentation/providers/promos_provider.dart';
 import '../../domain/requests/create_product_request.dart';
 import '../providers/add_product_form.dart';
 import '../providers/products_providers.dart';
-import '../providers/send_product_notification.dart';
 
 class AddProductScreen extends ConsumerStatefulWidget {
   const AddProductScreen({super.key});
@@ -369,38 +365,9 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
         .createProduct(request);
 
     if (newProduct != null && mounted) {
-      // Automatically send notification for the new product if it is active/published
-      if (newProduct.isActive) {
-        await sendProductNotification(context, newProduct);
-        // add New notification in firestore
-
-        try {
-          final usersSnapshot = await FirebaseFirestore.instance
-              .collection('users')
-              .get();
-
-          for (var userDoc in usersSnapshot.docs) {
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(userDoc.id)
-                .collection('notifications')
-                .add({
-                  'title': 'New Product',
-                  'message':
-                      'New product "${newProduct.title}" is now available!',
-                  'imageUrl': newProduct.imageUrls.isNotEmpty
-                      ? newProduct.imageUrls.first
-                      : null,
-                  'createdAt': FieldValue.serverTimestamp(),
-                  'read': false,
-                  'type': 'new_product',
-                  'metadata': {'productId': newProduct.id},
-                });
-          }
-        } catch (e) {
-          DPrint.error("Failed to add notifications to all users: $e");
-        }
-      }
+      // Notifications are no longer sent automatically on product creation.
+      // Admins must trigger a notification manually per product (see
+      // product_list_screen.dart / edit_product_screen.dart "Notify" button).
 
       ref.read(addProductFormProvider.notifier).reset();
       context.go(RouteEndpoint.products);
