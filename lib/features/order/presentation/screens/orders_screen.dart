@@ -19,8 +19,6 @@ class OrdersScreen extends ConsumerStatefulWidget {
 
 class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
   OrderStatus? _selectedStatusFilter;
-  int _currentPage = 1;
-  final int _itemsPerPage = 10;
 
   @override
   void initState() {
@@ -34,7 +32,6 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
   Widget build(BuildContext context) {
     final adminOrderState = ref.watch(adminOrderProvider);
     final filteredOrders = _getFilteredOrders(adminOrderState.orders);
-    final paginatedOrders = _getPaginatedOrders(filteredOrders);
 
     DPrint.log(
       'Rendering OrdersScreen with ${adminOrderState.orders} filtered orders',
@@ -50,10 +47,8 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
             _buildTopBar(filteredOrders.length, adminOrderState.users.length),
             const SizedBox(height: 24),
             Expanded(
-              child: _buildOrdersTable(paginatedOrders, adminOrderState),
+              child: _buildOrdersTable(filteredOrders, adminOrderState),
             ),
-            const SizedBox(height: 16),
-            _buildPagination(filteredOrders.length),
           ],
         ),
       ),
@@ -169,7 +164,6 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
               onChanged: (value) {
                 setState(() {
                   _selectedStatusFilter = value;
-                  _currentPage = 1;
                 });
               },
             ),
@@ -555,97 +549,10 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
     }
   }
 
-  Widget _buildPagination(int totalItems) {
-    final totalPages = (totalItems / _itemsPerPage).ceil();
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Showing ${(_currentPage - 1) * _itemsPerPage + 1} to ${(_currentPage * _itemsPerPage).clamp(0, totalItems)} of $totalItems results',
-            style: TextStyle(color: Colors.grey[600], fontSize: 14),
-          ),
-          Row(
-            children: [
-              IconButton(
-                onPressed: _currentPage > 1
-                    ? () => setState(() => _currentPage--)
-                    : null,
-                icon: const Icon(Icons.chevron_left),
-              ),
-              ...List.generate(totalPages.clamp(0, 5), (index) {
-                final pageNum = index + 1;
-                final isActive = pageNum == _currentPage;
-
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  child: InkWell(
-                    onTap: () => setState(() => _currentPage = pageNum),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? Colors.green[600]
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isActive
-                              ? Colors.green[600]!
-                              : Colors.grey[300]!,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          pageNum.toString(),
-                          style: TextStyle(
-                            color: isActive ? Colors.white : Colors.grey[700],
-                            fontWeight: isActive
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-              IconButton(
-                onPressed: _currentPage < totalPages
-                    ? () => setState(() => _currentPage++)
-                    : null,
-                icon: const Icon(Icons.chevron_right),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   List<Order> _getFilteredOrders(List<Order> orders) {
     if (_selectedStatusFilter == null) return orders;
     return orders
         .where((order) => order.status == _selectedStatusFilter)
         .toList();
-  }
-
-  List<Order> _getPaginatedOrders(List<Order> orders) {
-    final startIndex = (_currentPage - 1) * _itemsPerPage;
-    final endIndex = (startIndex + _itemsPerPage).clamp(0, orders.length);
-    return orders.sublist(startIndex, endIndex);
   }
 }

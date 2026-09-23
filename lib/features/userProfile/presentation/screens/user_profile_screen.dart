@@ -15,9 +15,6 @@ class AllUserProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
-  int _currentPage = 1;
-  final int _itemsPerPage = 5;
-
   @override
   Widget build(BuildContext context) {
     final userState = ref.watch(userProvider);
@@ -31,15 +28,6 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
     final filteredUsers = users.where((user) {
       return user.id != currentUserId && user.role != 'admin';
     }).toList();
-
-    // Pagination logic
-    final totalPages = (filteredUsers.length / _itemsPerPage).ceil();
-    final startIndex = (_currentPage - 1) * _itemsPerPage;
-    final endIndex = (startIndex + _itemsPerPage).clamp(
-      0,
-      filteredUsers.length,
-    );
-    final paginatedUsers = filteredUsers.sublist(startIndex, endIndex);
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -159,10 +147,12 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                 children: [
                   // Table Header
                   Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: AppColors.borderColor),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
                       ),
                     ),
                     child: Row(
@@ -262,10 +252,10 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                   else
                     Expanded(
                       child: ListView.builder(
-                        itemCount: paginatedUsers.length,
+                        itemCount: filteredUsers.length,
                         itemBuilder: (context, index) {
-                          final user = paginatedUsers[index];
-                          final isLast = index == paginatedUsers.length - 1;
+                          final user = filteredUsers[index];
+                          final isLast = index == filteredUsers.length - 1;
 
                           return Container(
                             padding: const EdgeInsets.all(16),
@@ -408,73 +398,22 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                       ),
                     ),
 
-                  // Pagination
-                  if (users.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: AppColors.borderColor),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Showing ${startIndex + 1} to $endIndex of ${users.length} results',
-                            style: const TextStyle(
-                              color: AppColors.textSecondaryColor,
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              IconButton(
-                                onPressed: _currentPage > 1
-                                    ? () => setState(() => _currentPage--)
-                                    : null,
-                                icon: const Icon(Icons.chevron_left),
-                              ),
-                              ...List.generate(totalPages, (index) {
-                                final pageNumber = index + 1;
-                                return GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _currentPage = pageNumber),
-                                  child: Container(
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _currentPage == pageNumber
-                                          ? AppColors.primaryLaurel
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      pageNumber.toString(),
-                                      style: TextStyle(
-                                        color: _currentPage == pageNumber
-                                            ? Colors.white
-                                            : AppColors.textSecondaryColor,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }),
-                              IconButton(
-                                onPressed: _currentPage < totalPages
-                                    ? () => setState(() => _currentPage++)
-                                    : null,
-                                icon: const Icon(Icons.chevron_right),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                  // // Footer
+                  // if (filteredUsers.isNotEmpty)
+                  //   Container(
+                  //     padding: const EdgeInsets.all(16),
+                  //     decoration: const BoxDecoration(
+                  //       border: Border(
+                  //         top: BorderSide(color: AppColors.borderColor),
+                  //       ),
+                  //     ),
+                  //     child: Text(
+                  //       'Showing all ${filteredUsers.length} results',
+                  //       style: const TextStyle(
+                  //         color: AppColors.textSecondaryColor,
+                  //       ),
+                  //     ),
+                  //   ),
                 ],
               ),
             ),

@@ -14,19 +14,10 @@ class PromosScreen extends ConsumerStatefulWidget {
 }
 
 class _PromosScreenState extends ConsumerState<PromosScreen> {
-  int _currentPage = 1;
-  final int _itemsPerPage = 5;
-
   @override
   Widget build(BuildContext context) {
     final promosState = ref.watch(promosProvider);
     final promos = promosState.promos;
-
-    // Pagination logic
-    final totalPages = (promos.length / _itemsPerPage).ceil();
-    final startIndex = (_currentPage - 1) * _itemsPerPage;
-    final endIndex = (startIndex + _itemsPerPage).clamp(0, promos.length);
-    final paginatedPromos = promos.sublist(startIndex, endIndex);
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -82,10 +73,12 @@ class _PromosScreenState extends ConsumerState<PromosScreen> {
                 children: [
                   // Table Header
                   Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: AppColors.borderColor),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
                       ),
                     ),
                     child: const Row(
@@ -169,10 +162,10 @@ class _PromosScreenState extends ConsumerState<PromosScreen> {
                   else
                     Expanded(
                       child: ListView.builder(
-                        itemCount: paginatedPromos.length,
+                        itemCount: promos.length,
                         itemBuilder: (context, index) {
-                          final promo = paginatedPromos[index];
-                          final isLast = index == paginatedPromos.length - 1;
+                          final promo = promos[index];
+                          final isLast = index == promos.length - 1;
 
                           return Container(
                             padding: const EdgeInsets.all(16),
@@ -347,79 +340,6 @@ class _PromosScreenState extends ConsumerState<PromosScreen> {
                             ),
                           );
                         },
-                      ),
-                    ),
-
-                  // Pagination
-                  if (promos.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: AppColors.borderColor),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Showing ${startIndex + 1} to $endIndex of ${promos.length} results',
-                            style: const TextStyle(
-                              color: AppColors.textSecondaryColor,
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              // Previous button
-                              IconButton(
-                                onPressed: _currentPage > 1
-                                    ? () => setState(() => _currentPage--)
-                                    : null,
-                                icon: const Icon(Icons.chevron_left),
-                              ),
-
-                              // Page numbers
-                              ...List.generate(totalPages, (index) {
-                                final pageNumber = index + 1;
-                                return GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _currentPage = pageNumber),
-                                  child: Container(
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _currentPage == pageNumber
-                                          ? AppColors.primaryLaurel
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      pageNumber.toString(),
-                                      style: TextStyle(
-                                        color: _currentPage == pageNumber
-                                            ? Colors.white
-                                            : AppColors.textSecondaryColor,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }),
-
-                              // Next button
-                              IconButton(
-                                onPressed: _currentPage < totalPages
-                                    ? () => setState(() => _currentPage++)
-                                    : null,
-                                icon: const Icon(Icons.chevron_right),
-                              ),
-                            ],
-                          ),
-                        ],
                       ),
                     ),
                 ],
