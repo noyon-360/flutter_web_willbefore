@@ -18,6 +18,12 @@ class Product {
   final double weightOz;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int viewCount;
+  final int cartAddCount;
+  final int orderCount;
+  final int ratingCount;
+  final double averageRating;
+  final double score;
 
   const Product({
     required this.id,
@@ -37,6 +43,12 @@ class Product {
     this.weightOz = 0.0,
     required this.createdAt,
     required this.updatedAt,
+    this.viewCount = 0,
+    this.cartAddCount = 0,
+    this.orderCount = 0,
+    this.ratingCount = 0,
+    this.averageRating = 0.0,
+    this.score = 0.0,
   });
 
   Product copyWith({
@@ -57,6 +69,12 @@ class Product {
     double? weightOz,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? viewCount,
+    int? cartAddCount,
+    int? orderCount,
+    int? ratingCount,
+    double? averageRating,
+    double? score,
   }) {
     return Product(
       id: id ?? this.id,
@@ -76,6 +94,12 @@ class Product {
       weightOz: weightOz ?? this.weightOz,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      viewCount: viewCount ?? this.viewCount,
+      cartAddCount: cartAddCount ?? this.cartAddCount,
+      orderCount: orderCount ?? this.orderCount,
+      ratingCount: ratingCount ?? this.ratingCount,
+      averageRating: averageRating ?? this.averageRating,
+      score: score ?? this.score,
     );
   }
 

@@ -25,7 +25,21 @@ exports.onChatMessageCreated =
 const paginatedLists = require("./controllers/paginated_lists");
 exports.getUsersPage = paginatedLists.getUsersPage;
 exports.getProductsPage = paginatedLists.getProductsPage;
+exports.getProductsPageByScore = paginatedLists.getProductsPageByScore;
 exports.getCategoriesPage = paginatedLists.getCategoriesPage;
 exports.getPromosPage = paginatedLists.getPromosPage;
 exports.getOrdersPage = paginatedLists.getOrdersPage;
+
+exports.onProductReviewWritten =
+  require("./controllers/product_reviews").onProductReviewWritten;
+
+const productEngagement = require("./controllers/product_engagement");
+exports.onProductViewMarkerCreated =
+  productEngagement.onProductViewMarkerCreated;
+exports.onCartItemCreated = productEngagement.onCartItemCreated;
+exports.onOrderCreated = productEngagement.onOrderCreated;
+
+const productRollup = require("./controllers/product_rollup");
+exports.rollupProductAggregates = productRollup.rollupProductAggregates;
+exports.backfillProductAggregates = productRollup.backfillProductAggregates;
 

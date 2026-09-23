@@ -8,6 +8,7 @@ abstract class ProductsRepository {
   Future<PaginatedFetchResult<Product>> getProductsPage({
     String? cursor,
     String? searchTerm,
+    bool sortByScore = false,
   });
   Future<List<Product>> getAllProducts();
   Future<List<Product>> getProductsByCategory(String categoryId);

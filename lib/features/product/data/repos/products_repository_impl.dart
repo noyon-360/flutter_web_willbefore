@@ -19,11 +19,13 @@ class ProductsRepositoryImpl implements ProductsRepository {
   Future<PaginatedFetchResult<Product>> getProductsPage({
     String? cursor,
     String? searchTerm,
+    bool sortByScore = false,
   }) async {
     try {
       final page = await _remoteDataSource.getProductsPage(
         cursor: cursor,
         searchTerm: searchTerm,
+        sortByScore: sortByScore,
       );
       return PaginatedFetchResult<Product>(
         items: page.items.map((model) => model.toEntity()).toList(),

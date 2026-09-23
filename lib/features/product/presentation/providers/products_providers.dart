@@ -23,6 +23,7 @@ class ProductsState {
   final bool hasMore;
   final bool isLoadingMore;
   final String searchTerm;
+  final bool sortByScore;
 
   const ProductsState({
     this.products = const [],
@@ -35,6 +36,7 @@ class ProductsState {
     this.hasMore = true,
     this.isLoadingMore = false,
     this.searchTerm = '',
+    this.sortByScore = false,
   });
 
   ProductsState copyWith({
@@ -48,6 +50,7 @@ class ProductsState {
     bool? hasMore,
     bool? isLoadingMore,
     String? searchTerm,
+    bool? sortByScore,
   }) {
     return ProductsState(
       products: products ?? this.products,
@@ -60,6 +63,7 @@ class ProductsState {
       hasMore: hasMore ?? this.hasMore,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       searchTerm: searchTerm ?? this.searchTerm,
+      sortByScore: sortByScore ?? this.sortByScore,
     );
   }
 }
@@ -85,6 +89,7 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
     try {
       final page = await _getProductsPageUseCase.call(
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+        sortByScore: state.sortByScore,
       );
       if (!mounted) return;
       state = ProductsState(
@@ -92,6 +97,7 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
         nextCursor: page.nextCursor,
         hasMore: page.hasMore,
         searchTerm: state.searchTerm,
+        sortByScore: state.sortByScore,
       );
     } catch (e) {
       if (!mounted) return;
@@ -107,6 +113,7 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
       final page = await _getProductsPageUseCase.call(
         cursor: state.nextCursor,
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+        sortByScore: state.sortByScore,
       );
       if (!mounted) return;
       state = state.copyWith(
@@ -122,7 +129,17 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
   }
 
   Future<void> search(String term) async {
-    state = ProductsState(searchTerm: term, isLoading: true);
+    state = ProductsState(searchTerm: term, isLoading: true, sortByScore: state.sortByScore);
+    await fetchProducts();
+  }
+
+  Future<void> setSortByScore(bool sortByScore) async {
+    if (state.sortByScore == sortByScore) return;
+    state = ProductsState(
+      searchTerm: state.searchTerm,
+      isLoading: true,
+      sortByScore: sortByScore,
+    );
     await fetchProducts();
   }
 

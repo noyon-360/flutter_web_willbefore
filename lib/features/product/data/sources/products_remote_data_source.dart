@@ -7,6 +7,7 @@ abstract class ProductsRemoteDataSource {
   Future<PaginatedFetchResult<ProductModel>> getProductsPage({
     String? cursor,
     String? searchTerm,
+    bool sortByScore = false,
   });
   Future<List<ProductModel>> getAllProducts();
   Future<List<ProductModel>> getProductsByCategory(String categoryId);
@@ -30,9 +31,10 @@ class ProductsRemoteDataSourceImpl implements ProductsRemoteDataSource {
   Future<PaginatedFetchResult<ProductModel>> getProductsPage({
     String? cursor,
     String? searchTerm,
+    bool sortByScore = false,
   }) {
     return fetchPaginatedPage<ProductModel>(
-      functionName: 'getProductsPage',
+      functionName: sortByScore ? 'getProductsPageByScore' : 'getProductsPage',
       fromMap: (map) => ProductModel.fromMap(map, map['id'] as String),
       cursor: cursor,
       searchTerm: searchTerm,

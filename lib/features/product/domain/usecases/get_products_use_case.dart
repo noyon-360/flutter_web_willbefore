@@ -10,8 +10,13 @@ class GetProductsPageUseCase {
   Future<PaginatedFetchResult<Product>> call({
     String? cursor,
     String? searchTerm,
+    bool sortByScore = false,
   }) {
-    return _repository.getProductsPage(cursor: cursor, searchTerm: searchTerm);
+    return _repository.getProductsPage(
+      cursor: cursor,
+      searchTerm: searchTerm,
+      sortByScore: sortByScore,
+    );
   }
 }
 

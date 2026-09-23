@@ -12,6 +12,12 @@ exports.getProductsPage = createPaginatedListFunction({
   searchField: "title",
 });
 
+exports.getProductsPageByScore = createPaginatedListFunction({
+  collection: "products",
+  orderByField: "score",
+  searchField: "title",
+});
+
 exports.getCategoriesPage = createPaginatedListFunction({
   collection: "categories",
   orderByField: "createdAt",

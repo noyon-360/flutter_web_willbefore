@@ -84,29 +84,68 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
 
           const SizedBox(height: 16),
 
-          // Search
-          TextField(
-            controller: _searchController,
-            onSubmitted: (value) =>
-                ref.read(productsProvider.notifier).search(value.trim()),
-            decoration: InputDecoration(
-              hintText: 'Search products by title...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        ref.read(productsProvider.notifier).search('');
-                      },
+          // Search + sort
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  onSubmitted: (value) =>
+                      ref.read(productsProvider.notifier).search(value.trim()),
+                  decoration: InputDecoration(
+                    hintText: 'Search products by title...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              ref.read(productsProvider.notifier).search('');
+                            },
+                          ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                ),
               ),
-              filled: true,
-              fillColor: Colors.white,
-            ),
+              const SizedBox(width: 16),
+              Container(
+                height: 56,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.borderColor),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<bool>(
+                    value: productsState.sortByScore,
+                    icon: const Icon(Icons.arrow_drop_down),
+                    items: const [
+                      DropdownMenuItem(
+                        value: false,
+                        child: Text('Sort: Newest'),
+                      ),
+                      DropdownMenuItem(
+                        value: true,
+                        child: Text('Sort: Top score'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      ref
+                          .read(productsProvider.notifier)
+                          .setSortByScore(value);
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 16),
@@ -179,6 +218,24 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                         Expanded(
                           child: Text(
                             'Stocks',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textAppBlack,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'Views',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textAppBlack,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'Rating',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               color: AppColors.textAppBlack,
@@ -388,6 +445,46 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
+                                  ),
+
+                                  // Views
+                                  Expanded(
+                                    child: Text(
+                                      '${product.viewCount}',
+                                      style: const TextStyle(
+                                        color: AppColors.textSecondaryColor,
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Rating
+                                  Expanded(
+                                    child: product.ratingCount > 0
+                                        ? Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(
+                                                Icons.star,
+                                                size: 14,
+                                                color: Colors.amber,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '${product.averageRating.toStringAsFixed(1)} (${product.ratingCount})',
+                                                style: const TextStyle(
+                                                  color: AppColors
+                                                      .textSecondaryColor,
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : const Text(
+                                            '—',
+                                            style: TextStyle(
+                                              color: AppColors
+                                                  .textSecondaryColor,
+                                            ),
+                                          ),
                                   ),
 
                                   // Date
