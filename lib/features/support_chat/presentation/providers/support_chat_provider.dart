@@ -25,6 +25,17 @@ final openChatsProvider = StreamProvider<List<ChatModel>>((ref) {
   });
 });
 
+/// Streams a single chat doc, so the admin sees live status/rating updates
+/// (e.g. a rating the customer submits after the admin has already opened
+/// the conversation).
+final chatProvider = StreamProvider.family<ChatModel?, String>((ref, chatId) {
+  return FirebaseFirestore.instance
+      .collection('chats')
+      .doc(chatId)
+      .snapshots()
+      .map((doc) => doc.exists ? ChatModel.fromFirestore(doc) : null);
+});
+
 /// Streams the messages of a single chat, oldest first.
 final chatMessagesProvider =
     StreamProvider.family<List<ChatMessageModel>, String>((ref, chatId) {

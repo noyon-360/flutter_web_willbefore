@@ -48,6 +48,8 @@ class _SupportChatDetailScreenState
   @override
   Widget build(BuildContext context) {
     final messagesAsync = ref.watch(chatMessagesProvider(widget.chatId));
+    final chat =
+        ref.watch(chatProvider(widget.chatId)).value ?? widget.initialChat;
 
     return AppScaffold(
       appBar: AppBar(
@@ -62,15 +64,15 @@ class _SupportChatDetailScreenState
       ),
       body: Column(
         children: [
-          if (widget.initialChat?.productId != null &&
-              widget.initialChat!.productId!.isNotEmpty)
+          if (chat?.productId != null && chat!.productId!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 12),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: ProductPill(chat: widget.initialChat!),
+                child: ProductPill(chat: chat),
               ),
             ),
+          if (chat?.rating != null) _buildRatingBanner(chat!),
           Expanded(
             child: messagesAsync.when(
               data: (messages) {
@@ -105,6 +107,44 @@ class _SupportChatDetailScreenState
             ),
           ),
           _buildComposer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRatingBanner(ChatModel chat) {
+    final rating = chat.rating?.round() ?? 0;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: List.generate(5, (index) {
+              return Icon(
+                index < rating ? Icons.star : Icons.star_border,
+                color: Colors.amber,
+                size: 18,
+              );
+            }),
+          ),
+          const SizedBox(width: 8),
+          if (chat.ratingComment != null && chat.ratingComment!.isNotEmpty)
+            Expanded(
+              child: Text(
+                '"${chat.ratingComment}"',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
         ],
       ),
     );
