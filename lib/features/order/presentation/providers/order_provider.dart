@@ -74,6 +74,7 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
       final page = await _orderRepository.getOrdersPage(
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
       );
+      if (!mounted) return;
       state = AdminOrderState(
         orders: page.items,
         usersCount: usersCount,
@@ -82,6 +83,7 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
         searchTerm: state.searchTerm,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
@@ -95,6 +97,7 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
         cursor: state.nextCursor,
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
       );
+      if (!mounted) return;
       state = state.copyWith(
         orders: [...state.orders, ...page.items],
         nextCursor: page.nextCursor,
@@ -102,6 +105,7 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
         isLoadingMore: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoadingMore: false, errorMessage: e.toString());
     }
   }
@@ -125,9 +129,11 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
         return order;
       }).toList();
 
+      if (!mounted) return true;
       state = state.copyWith(orders: updatedOrders, isUpdating: false);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isUpdating: false, errorMessage: e.toString());
       return false;
     }
@@ -165,9 +171,11 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
         return o;
       }).toList();
 
+      if (!mounted) return true;
       state = state.copyWith(orders: updatedOrders, isUpdating: false);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isUpdating: false, errorMessage: e.toString());
       return false;
     }
@@ -188,9 +196,11 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
         return order;
       }).toList();
 
+      if (!mounted) return true;
       state = state.copyWith(orders: updatedOrders, isUpdating: false);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isUpdating: false, errorMessage: e.toString());
       return false;
     }
@@ -232,9 +242,11 @@ class AdminOrderNotifier extends StateNotifier<AdminOrderState> {
         return o;
       }).toList();
 
+      if (!mounted) return true;
       state = state.copyWith(orders: updatedOrders, isUpdating: false);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isUpdating: false, errorMessage: e.toString());
       return false;
     }

@@ -45,6 +45,7 @@ class WarehouseProvider extends StateNotifier<WarehouseState> {
   Future<void> _load() async {
     state = state.copyWith(isLoading: true);
     final asyncValue = await _ref.read(_warehouseAddressProvider.future);
+    if (!mounted) return;
     state = state.copyWith(address: asyncValue, isLoading: false);
   }
 
@@ -56,9 +57,11 @@ class WarehouseProvider extends StateNotifier<WarehouseState> {
           .doc('warehouse_address')
           .set(address.toJson(), SetOptions(merge: true));
 
+      if (!mounted) return true;
       state = state.copyWith(address: address, isLoading: false);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(error: e.toString(), isLoading: false);
       return false;
     }

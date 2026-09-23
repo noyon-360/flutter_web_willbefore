@@ -8,6 +8,14 @@ import 'package:flutter_web_willbefore/features/auth/domain/repos/auth_repositor
 import 'package:flutter_web_willbefore/features/auth/domain/requests/login_request.dart';
 import 'package:flutter_web_willbefore/features/auth/domain/usecases/login_use_case.dart';
 
+/// Sentinel used to distinguish "leave unchanged" from "explicitly clear to
+/// null" for nullable fields in [AuthState.copyWith].
+class _Unset {
+  const _Unset();
+}
+
+const _unset = _Unset();
+
 class AuthState extends BaseState {
   final UserModel? user;
   final bool isAuthenticated;
@@ -27,18 +35,18 @@ class AuthState extends BaseState {
   AuthState copyWith({
     bool? isLoading,
     String? errorMessage,
-    UserModel? user,
+    Object? user = _unset,
     bool? isAuthenticated,
     bool? isInitialized,
-    String? role,
+    Object? role = _unset,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage ?? this.errorMessage,
-      user: user ?? this.user,
+      user: identical(user, _unset) ? this.user : user as UserModel?,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       isInitialized: isInitialized ?? this.isInitialized,
-      role: role ?? this.role,
+      role: identical(role, _unset) ? this.role : role as String?,
     );
   }
 }
@@ -86,9 +94,11 @@ class AuthProvider extends StateNotifier<AuthState> {
         final role = await _authRepository.getUserRole(user.uid);
         if (!UserRoles.isStaff(role)) {
           await _authRepository.logout();
+          if (!mounted) return;
           state = state.copyWith(isAuthenticated: false, isInitialized: true);
           return;
         }
+        if (!mounted) return;
         state = state.copyWith(
           user: user,
           isAuthenticated: true,
@@ -96,9 +106,11 @@ class AuthProvider extends StateNotifier<AuthState> {
           role: role,
         );
       } else {
+        if (!mounted) return;
         state = state.copyWith(isAuthenticated: false, isInitialized: true);
       }
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isAuthenticated: false,
         isInitialized: true,
@@ -115,6 +127,7 @@ class AuthProvider extends StateNotifier<AuthState> {
       final role = await _authRepository.getUserRole(userModel.uid);
       if (!UserRoles.isStaff(role)) {
         await _authRepository.logout();
+        if (!mounted) return false;
         state = state.copyWith(
           isLoading: false,
           errorMessage: 'Access denied. Only admins can log in.',
@@ -122,13 +135,17 @@ class AuthProvider extends StateNotifier<AuthState> {
         return false;
       }
 
+      if (!mounted) return true;
       state = state.copyWith(isAuthenticated: true, role: role);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
       return false;
     } finally {
-      state = state.copyWith(isLoading: false);
+      if (mounted) {
+        state = state.copyWith(isLoading: false);
+      }
     }
   }
 
@@ -138,12 +155,15 @@ class AuthProvider extends StateNotifier<AuthState> {
     try {
       await _authRepository.logout();
 
+      if (!mounted) return;
       state = state.copyWith(
         user: null,
+        role: null,
         isAuthenticated: false,
         isLoading: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }

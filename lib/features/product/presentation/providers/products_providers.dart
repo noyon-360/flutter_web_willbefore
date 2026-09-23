@@ -86,6 +86,7 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
       final page = await _getProductsPageUseCase.call(
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
       );
+      if (!mounted) return;
       state = ProductsState(
         products: page.items,
         nextCursor: page.nextCursor,
@@ -93,6 +94,7 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
         searchTerm: state.searchTerm,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
@@ -106,6 +108,7 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
         cursor: state.nextCursor,
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
       );
+      if (!mounted) return;
       state = state.copyWith(
         products: [...state.products, ...page.items],
         nextCursor: page.nextCursor,
@@ -113,6 +116,7 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
         isLoadingMore: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoadingMore: false, errorMessage: e.toString());
     }
   }
@@ -129,10 +133,12 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
       final newProduct = await _createProductUseCase.call(request);
 
       final updatedProducts = [newProduct, ...state.products];
+      if (!mounted) return newProduct;
       state = state.copyWith(products: updatedProducts, isCreating: false);
 
       return newProduct;
     } catch (e) {
+      if (!mounted) return null;
       state = state.copyWith(isCreating: false, errorMessage: e.toString());
       return null;
     }
@@ -149,10 +155,12 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
         return product.id == updatedProduct.id ? updatedProduct : product;
       }).toList();
 
+      if (!mounted) return true;
       state = state.copyWith(products: updatedProducts, isUpdating: false);
 
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isUpdating: false, errorMessage: e.toString());
       return false;
     }
@@ -169,10 +177,12 @@ class ProductsNotifier extends StateNotifier<ProductsState> {
           .where((product) => product.id != productId)
           .toList();
 
+      if (!mounted) return true;
       state = state.copyWith(products: updatedProducts, isDeleting: false);
 
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isDeleting: false, errorMessage: e.toString());
       return false;
     }

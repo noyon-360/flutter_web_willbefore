@@ -98,6 +98,7 @@ class CategoriesProvider extends StateNotifier<CategoriesState> {
       final page = await _getCategoriesPageUseCase.call(
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
       );
+      if (!mounted) return;
       state = CategoriesState(
         categories: page.items,
         nextCursor: page.nextCursor,
@@ -105,6 +106,7 @@ class CategoriesProvider extends StateNotifier<CategoriesState> {
         searchTerm: state.searchTerm,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
@@ -118,6 +120,7 @@ class CategoriesProvider extends StateNotifier<CategoriesState> {
         cursor: state.nextCursor,
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
       );
+      if (!mounted) return;
       state = state.copyWith(
         categories: [...state.categories, ...page.items],
         nextCursor: page.nextCursor,
@@ -125,6 +128,7 @@ class CategoriesProvider extends StateNotifier<CategoriesState> {
         isLoadingMore: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoadingMore: false, errorMessage: e.toString());
     }
   }
@@ -138,12 +142,14 @@ class CategoriesProvider extends StateNotifier<CategoriesState> {
     state = state.copyWith(isCreating: true, errorMessage: null);
     try {
       final category = await _createCategoryUseCase.call(request);
+      if (!mounted) return true;
       state = state.copyWith(
         isCreating: false,
         categories: [category, ...state.categories],
       );
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isCreating: false, errorMessage: e.toString());
       return false;
     }
@@ -153,6 +159,7 @@ class CategoriesProvider extends StateNotifier<CategoriesState> {
     state = state.copyWith(isUpdating: true, errorMessage: null);
     try {
       final updated = await _updateCategoryUseCase.call(request);
+      if (!mounted) return true;
       state = state.copyWith(
         isUpdating: false,
         categories: state.categories
@@ -161,6 +168,7 @@ class CategoriesProvider extends StateNotifier<CategoriesState> {
       );
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isUpdating: false, errorMessage: e.toString());
       return false;
     }
@@ -170,12 +178,14 @@ class CategoriesProvider extends StateNotifier<CategoriesState> {
     state = state.copyWith(isDeleting: true, errorMessage: null);
     try {
       await _deleteCategoryUseCase.call(id);
+      if (!mounted) return true;
       state = state.copyWith(
         isDeleting: false,
         categories: state.categories.where((c) => c.id != id).toList(),
       );
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isDeleting: false, errorMessage: e.toString());
       return false;
     }

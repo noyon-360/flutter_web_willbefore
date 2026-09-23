@@ -99,6 +99,7 @@ class UserProvider extends StateNotifier<AllUserState> {
       final page = await _userRepository.getUsersPage(
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
       );
+      if (!mounted) return;
       state = AllUserState(
         users: page.items,
         nextCursor: page.nextCursor,
@@ -106,6 +107,7 @@ class UserProvider extends StateNotifier<AllUserState> {
         searchTerm: state.searchTerm,
       );
     } catch (error) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to load users: $error',
@@ -122,6 +124,7 @@ class UserProvider extends StateNotifier<AllUserState> {
         cursor: state.nextCursor,
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
       );
+      if (!mounted) return;
       state = state.copyWith(
         users: [...state.users, ...page.items],
         nextCursor: page.nextCursor,
@@ -129,6 +132,7 @@ class UserProvider extends StateNotifier<AllUserState> {
         isLoadingMore: false,
       );
     } catch (error) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoadingMore: false,
         errorMessage: 'Failed to load more users: $error',
@@ -169,6 +173,7 @@ class UserProvider extends StateNotifier<AllUserState> {
         name: name,
       );
 
+      if (!mounted) return true;
       state = AllUserState(
         users: state.users,
         nextCursor: state.nextCursor,
@@ -197,9 +202,11 @@ class UserProvider extends StateNotifier<AllUserState> {
         message = e.message ?? message;
       }
 
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, errorMessage: message);
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Unexpected error: $e',
@@ -221,15 +228,18 @@ class UserProvider extends StateNotifier<AllUserState> {
         return user;
       }).toList();
 
+      if (!mounted) return true;
       state = state.copyWith(users: updatedUsers, isLoading: false);
       return true;
     } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isLoading: false,
         updateError: e.message ?? 'Failed to update user role',
       );
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isLoading: false,
         updateError: 'Failed to update user role: $e',
@@ -248,15 +258,18 @@ class UserProvider extends StateNotifier<AllUserState> {
           .where((user) => user.id != userId)
           .toList();
 
+      if (!mounted) return true;
       state = state.copyWith(users: updatedUsers, isLoading: false);
       return true;
     } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isLoading: false,
         deleteError: e.message ?? 'Failed to delete user',
       );
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
         isLoading: false,
         deleteError: 'Failed to delete user: $e',

@@ -123,6 +123,7 @@ class PromosProvider extends StateNotifier<PromosState> {
       final page = await _getPromosPageUseCase.call(
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
       );
+      if (!mounted) return;
       state = state.copyWith(
         adminPromos: page.items,
         nextCursor: page.nextCursor,
@@ -130,6 +131,7 @@ class PromosProvider extends StateNotifier<PromosState> {
         isLoadingAdmin: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoadingAdmin: false, errorMessage: e.toString());
     }
   }
@@ -143,6 +145,7 @@ class PromosProvider extends StateNotifier<PromosState> {
         cursor: state.nextCursor,
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
       );
+      if (!mounted) return;
       state = state.copyWith(
         adminPromos: [...state.adminPromos, ...page.items],
         nextCursor: page.nextCursor,
@@ -150,6 +153,7 @@ class PromosProvider extends StateNotifier<PromosState> {
         isLoadingMore: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoadingMore: false, errorMessage: e.toString());
     }
   }
@@ -213,12 +217,14 @@ class PromosProvider extends StateNotifier<PromosState> {
     state = state.copyWith(isCreating: true, errorMessage: null);
     try {
       final promo = await _createPromoUseCase.call(request);
+      if (!mounted) return true;
       state = state.copyWith(
         isCreating: false,
         adminPromos: [promo, ...state.adminPromos],
       );
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isCreating: false, errorMessage: e.toString());
       return false;
     }
@@ -228,6 +234,7 @@ class PromosProvider extends StateNotifier<PromosState> {
     state = state.copyWith(isUpdating: true, errorMessage: null);
     try {
       final updated = await _updatePromoUseCase.call(request);
+      if (!mounted) return true;
       state = state.copyWith(
         isUpdating: false,
         adminPromos: state.adminPromos
@@ -236,6 +243,7 @@ class PromosProvider extends StateNotifier<PromosState> {
       );
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isUpdating: false, errorMessage: e.toString());
       return false;
     }
@@ -245,12 +253,14 @@ class PromosProvider extends StateNotifier<PromosState> {
     state = state.copyWith(isDeleting: true, errorMessage: null);
     try {
       await _deletePromoUseCase.call(id);
+      if (!mounted) return true;
       state = state.copyWith(
         isDeleting: false,
         adminPromos: state.adminPromos.where((p) => p.id != id).toList(),
       );
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isDeleting: false, errorMessage: e.toString());
       return false;
     }
