@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutx_core/flutx_core.dart';
 
+import '../../../../core/utils/us_phone.dart';
 import '../../domain/models/warehouse_address.dart';
 import '../provider/warehouse_provider.dart';
 
@@ -83,7 +84,7 @@ class _WarehouseAddressSettingsState
       zip: _zipCtrl.text.trim(),
       country: _countryCtrl.text.trim(),
       email: _emailCtrl.text.trim(),
-      phone: _phoneCtrl.text.trim(),
+      phone: UsPhone.normalize(_phoneCtrl.text),
       isResidential: _isResidential,
     );
 
@@ -195,10 +196,11 @@ class _WarehouseAddressSettingsState
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
-                  labelText: 'Phone *',
+                  labelText: 'Phone * (US only)',
+                  hintText: '857-230-2794',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => v?.trim().isEmpty ?? true ? 'Required' : null,
+                validator: UsPhone.validator,
               ),
               Gap.h12,
 

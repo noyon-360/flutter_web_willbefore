@@ -26,7 +26,7 @@ class AuthRemoteDataSource {
       // SESSION clears when the tab/browser closes.
       if (kIsWeb) {
         await _firebaseAuth.setPersistence(
-          request.rememberMe ? Persistence.LOCAL : Persistence.SESSION,
+          Persistence.LOCAL,
         );
       }
 

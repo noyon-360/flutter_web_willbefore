@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutx_core/flutx_core.dart';
 
 import '../../../../core/services/shippo_service.dart';
+import '../../../../core/utils/us_phone.dart';
 import '../../../setting/presentation/provider/warehouse_provider.dart';
 import '../../domain/entities/order_entities.dart';
 import '../providers/order_provider.dart';
@@ -150,9 +151,21 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
   //  Address editing
   // --------------------------------------------------------------
   Future<void> _saveAddress() async {
+    final phoneError = UsPhone.validator(
+      _phoneController.text,
+      required: false,
+    );
+    if (phoneError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(phoneError), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
     final updated = ShippingAddress(
       fullName: _nameController.text.trim(),
-      phoneNumber: _phoneController.text.trim(),
+      phoneNumber: UsPhone.normalize(_phoneController.text) ??
+          _phoneController.text.trim(),
       email: _emailController.text.trim(),
       addressLine1: _address1Controller.text.trim(),
       addressLine2: _address2Controller.text.trim(),
@@ -243,9 +256,10 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
           'Warehouse email is missing. Please add it in Admin → Settings → Warehouse Address.',
         );
       }
-      if (warehouse.phone == null || warehouse.phone!.trim().isEmpty) {
+      final warehousePhone = UsPhone.normalize(warehouse.phone);
+      if (warehousePhone == null) {
         throw Exception(
-          'Warehouse phone is missing. Please add it in Admin → Settings → Warehouse Address.',
+          'Warehouse phone is missing or not a valid US number. Please fix it in Admin → Settings → Warehouse Address.',
         );
       }
 
@@ -258,7 +272,7 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         zip: warehouse.zip ?? '',
         country: warehouse.country ?? '',
         email: warehouse.email,
-        phone: warehouse.phone,
+        phone: warehousePhone,
         isResidential: warehouse.isResidential,
       );
 
@@ -276,7 +290,8 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         state: _order!.shippingAddress.state,
         zip: _order!.shippingAddress.postalCode,
         country: _order!.shippingAddress.country,
-        phone: _order!.shippingAddress.phoneNumber,
+        // Invalid/non-US customer phone is omitted so it can't block the label.
+        phone: UsPhone.normalize(_order!.shippingAddress.phoneNumber),
         email: _order!.shippingAddress.email,
       );
 
