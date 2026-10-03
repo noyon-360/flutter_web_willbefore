@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:url_strategy/url_strategy.dart';
 
 import 'core/routes/route_endpoint.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 import 'firebase_options.dart';
 import 'services/notification_service.dart';
 
@@ -45,7 +46,32 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.light,
 
         routerConfig: AppRouter.router,
+        builder: (context, child) => _AuthGate(child: child),
       ),
     );
+  }
+}
+
+/// Holds the UI back until the persisted Firebase session is restored, and
+/// tells the router to re-evaluate its redirect when auth state changes.
+class _AuthGate extends ConsumerWidget {
+  const _AuthGate({required this.child});
+
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(authProvider, (prev, next) {
+      if (prev?.isAuthenticated != next.isAuthenticated ||
+          prev?.isInitialized != next.isInitialized) {
+        // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+        AppRouter.refresh.notifyListeners();
+      }
+    });
+
+    if (!ref.watch(authProvider.select((s) => s.isInitialized))) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return child ?? const SizedBox.shrink();
   }
 }

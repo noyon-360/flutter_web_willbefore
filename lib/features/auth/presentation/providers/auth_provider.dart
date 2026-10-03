@@ -78,7 +78,11 @@ class AuthProvider extends StateNotifier<AuthState> {
 
     /// [Listen] to auth state changes
     _authRepository.authStateChanges.listen((user) {
-      state = state.copyWith(user: user, isAuthenticated: user != null);
+      // Only sync the user; isAuthenticated is set by the role-checked
+      // init/login/logout paths so non-staff accounts never count as signed in.
+      if (user == null) {
+        state = state.copyWith(user: null, isAuthenticated: false);
+      }
     });
   }
 

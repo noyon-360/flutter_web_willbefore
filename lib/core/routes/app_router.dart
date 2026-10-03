@@ -17,12 +17,19 @@ class AuthGuardState {
 }
 
 class AppRouter {
+  /// Fired when auth state changes so GoRouter re-runs [redirect].
+  static final ChangeNotifier refresh = ChangeNotifier();
+
   static final GoRouter router = GoRouter(
     initialLocation: RouteEndpoint.dashboard,
+    refreshListenable: refresh,
 
     redirect: (context, state) {
       final container = ProviderScope.containerOf(context);
       final authGuard = container.read(authGuardProvider);
+
+      // Firebase restores the web session asynchronously; don't decide yet.
+      if (!authGuard.isInitialized) return null;
 
       final isLoginRoute = state.matchedLocation == RouteEndpoint.login;
 
