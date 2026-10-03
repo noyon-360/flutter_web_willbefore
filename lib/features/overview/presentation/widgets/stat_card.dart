@@ -7,6 +7,7 @@ class StatCard extends StatelessWidget {
   final Color iconColor;
   final String? trend;
   final bool? isPositive;
+  final String? trendHint;
 
   const StatCard({
     super.key,
@@ -16,6 +17,7 @@ class StatCard extends StatelessWidget {
     required this.iconColor,
     this.trend,
     this.isPositive,
+    this.trendHint,
   });
 
   @override
@@ -74,22 +76,32 @@ class StatCard extends StatelessWidget {
                     ),
                     if (trend != null) ...[
                       const SizedBox(width: 8),
-                      Text(
-                        trend!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: (isPositive ?? true)
-                              ? Colors.green
-                              : Colors.red,
+                      Tooltip(
+                        message: trendHint ?? '',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              trend!,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: (isPositive ?? true)
+                                    ? Colors.green
+                                    : Colors.red,
+                              ),
+                            ),
+                            Icon(
+                              (isPositive ?? true)
+                                  ? Icons.arrow_upward
+                                  : Icons.arrow_downward,
+                              size: 14,
+                              color: (isPositive ?? true)
+                                  ? Colors.green
+                                  : Colors.red,
+                            ),
+                          ],
                         ),
-                      ),
-                      Icon(
-                        (isPositive ?? true)
-                            ? Icons.arrow_upward
-                            : Icons.arrow_downward,
-                        size: 14,
-                        color: (isPositive ?? true) ? Colors.green : Colors.red,
                       ),
                     ],
                   ],

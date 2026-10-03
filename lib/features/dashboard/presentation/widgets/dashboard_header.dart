@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_willbefore/core/constants/user_roles.dart';
 import 'package:flutter_web_willbefore/core/routes/route_endpoint.dart';
+import 'package:flutter_web_willbefore/features/auth/presentation/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../notifications/presentation/providers/notification_provider.dart';
+import '../../../order/domain/entities/user_entities.dart';
 
 class DashboardHeader extends ConsumerWidget {
   final String title;
@@ -21,6 +24,11 @@ class DashboardHeader extends ConsumerWidget {
       data: (notifications) => notifications.where((n) => !n.read).length,
       orElse: () => 0,
     );
+    final roleLabel = UserRoles.label(ref.watch(currentUserRoleProvider));
+    final words = roleLabel.split(' ');
+    final roleInitials = words.length > 1
+        ? words.map((w) => w[0]).join().toUpperCase()
+        : roleLabel.substring(0, 2).toUpperCase();
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -118,9 +126,9 @@ class DashboardHeader extends ConsumerWidget {
                 ],
               ),
               const SizedBox(width: 12),
-              const Text(
-                'Admin',
-                style: TextStyle(
+              Text(
+                roleLabel,
+                style: const TextStyle(
                   fontWeight: FontWeight.w500,
                   // color: AppTheme.textPrimary,
                 ),
@@ -129,9 +137,9 @@ class DashboardHeader extends ConsumerWidget {
               CircleAvatar(
                 radius: 20,
                 // backgroundColor: AppColors.primaryLaurel,
-                child: const Text(
-                  'AD',
-                  style: TextStyle(
+                child: Text(
+                  roleInitials,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
