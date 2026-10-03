@@ -3,26 +3,33 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../../core/pagination/paginated_fetch.dart';
 import '../../../order/data/models/user_model.dart';
+import '../../domain/models/user_list_query.dart';
 import '../../domain/repository/user_profile_repository.dart';
 
 class AllUserProfileRepositorImpl implements AllUserProfileRepository {
   final FirebaseFunctions _functions;
   final FirebaseAuth _auth;
 
-  AllUserProfileRepositorImpl({FirebaseFunctions? functions, FirebaseAuth? auth})
-    : _functions = functions ?? FirebaseFunctions.instance,
-      _auth = auth ?? FirebaseAuth.instance;
+  AllUserProfileRepositorImpl({
+    FirebaseFunctions? functions,
+    FirebaseAuth? auth,
+  }) : _functions = functions ?? FirebaseFunctions.instance,
+       _auth = auth ?? FirebaseAuth.instance;
 
   @override
   Future<PaginatedFetchResult<UserModel>> getUsersPage({
     String? cursor,
     String? searchTerm,
+    UserListQuery query = const UserListQuery(),
   }) {
     return fetchPaginatedPage<UserModel>(
       functionName: 'getUsersPage',
       fromMap: UserModel.fromMap,
       cursor: cursor,
       searchTerm: searchTerm,
+      filters: query.serverFilters,
+      createdFrom: query.createdFrom,
+      createdTo: query.createdTo,
     );
   }
 

@@ -20,6 +20,9 @@ Future<PaginatedFetchResult<T>> fetchPaginatedPage<T>({
   required T Function(Map<String, dynamic> data) fromMap,
   String? cursor,
   String? searchTerm,
+  Map<String, dynamic>? filters,
+  DateTime? createdFrom,
+  DateTime? createdTo,
   int pageSize = 20,
 }) async {
   final callable = FirebaseFunctions.instance.httpsCallable(
@@ -30,6 +33,9 @@ Future<PaginatedFetchResult<T>> fetchPaginatedPage<T>({
   final result = await callable.call(<String, dynamic>{
     if (cursor != null) 'cursor': cursor,
     if (searchTerm != null && searchTerm.isNotEmpty) 'searchTerm': searchTerm,
+    if (filters != null && filters.isNotEmpty) 'filters': filters,
+    if (createdFrom != null) 'createdFrom': createdFrom.millisecondsSinceEpoch,
+    if (createdTo != null) 'createdTo': createdTo.millisecondsSinceEpoch,
     'pageSize': pageSize,
   });
 

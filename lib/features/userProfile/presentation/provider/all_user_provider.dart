@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import '../../../../core/base/base_state.dart';
 import '../../../order/data/models/user_model.dart';
 import '../../data/repository/user_profile_repository_impl.dart';
+import '../../domain/models/user_list_query.dart';
 import '../../domain/repository/user_profile_repository.dart';
 
 class AllUserState extends BaseState {
@@ -17,6 +18,7 @@ class AllUserState extends BaseState {
   final bool isLoadingMore;
   final String searchTerm;
   final String? lastInvitedEmail;
+  final UserListQuery query;
 
   const AllUserState({
     super.isLoading = false,
@@ -29,6 +31,7 @@ class AllUserState extends BaseState {
     this.isLoadingMore = false,
     this.searchTerm = '',
     this.lastInvitedEmail,
+    this.query = const UserListQuery(),
   });
 
   @override
@@ -43,6 +46,7 @@ class AllUserState extends BaseState {
     bool? isLoadingMore,
     String? searchTerm,
     String? lastInvitedEmail,
+    UserListQuery? query,
   }) {
     return AllUserState(
       isLoading: isLoading ?? this.isLoading,
@@ -55,6 +59,7 @@ class AllUserState extends BaseState {
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       searchTerm: searchTerm ?? this.searchTerm,
       lastInvitedEmail: lastInvitedEmail ?? this.lastInvitedEmail,
+      query: query ?? this.query,
     );
   }
 }
@@ -98,6 +103,7 @@ class UserProvider extends StateNotifier<AllUserState> {
     try {
       final page = await _userRepository.getUsersPage(
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+        query: state.query,
       );
       if (!mounted) return;
       state = AllUserState(
@@ -105,6 +111,7 @@ class UserProvider extends StateNotifier<AllUserState> {
         nextCursor: page.nextCursor,
         hasMore: page.hasMore,
         searchTerm: state.searchTerm,
+        query: state.query,
       );
     } catch (error) {
       if (!mounted) return;
@@ -123,6 +130,7 @@ class UserProvider extends StateNotifier<AllUserState> {
       final page = await _userRepository.getUsersPage(
         cursor: state.nextCursor,
         searchTerm: state.searchTerm.isEmpty ? null : state.searchTerm,
+        query: state.query,
       );
       if (!mounted) return;
       state = state.copyWith(
@@ -141,12 +149,33 @@ class UserProvider extends StateNotifier<AllUserState> {
   }
 
   Future<void> search(String term) async {
-    state = AllUserState(searchTerm: term, isLoading: true);
+    state = AllUserState(searchTerm: term, isLoading: true, query: state.query);
+    await _loadFirstPage();
+  }
+
+  /// Applies a new sort/filter. Reloads from page one only when something
+  /// the server handles changed; client-only changes just re-render.
+  Future<void> setQuery(UserListQuery query) async {
+    final old = state.query;
+    final serverChanged =
+        old.role != query.role ||
+        old.createdFrom != query.createdFrom ||
+        old.createdTo != query.createdTo;
+
+    if (!serverChanged) {
+      state = state.copyWith(query: query);
+      return;
+    }
+    state = AllUserState(
+      searchTerm: state.searchTerm,
+      isLoading: true,
+      query: query,
+    );
     await _loadFirstPage();
   }
 
   void refreshUsers() {
-    state = AllUserState(searchTerm: state.searchTerm);
+    state = AllUserState(searchTerm: state.searchTerm, query: state.query);
     _loadFirstPage();
   }
 
@@ -180,6 +209,7 @@ class UserProvider extends StateNotifier<AllUserState> {
         hasMore: state.hasMore,
         searchTerm: state.searchTerm,
         lastInvitedEmail: result.email,
+        query: state.query,
       );
 
       // The Cloud Function might take a split second to create the doc in

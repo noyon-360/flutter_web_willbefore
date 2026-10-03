@@ -4,6 +4,8 @@ exports.getUsersPage = createPaginatedListFunction({
   collection: "users",
   orderByField: "createdAt",
   searchField: "email",
+  filterableFields: ["role", "isActive", "isEmailVerified"],
+  dateRangeField: "createdAt",
 });
 
 exports.getProductsPage = createPaginatedListFunction({

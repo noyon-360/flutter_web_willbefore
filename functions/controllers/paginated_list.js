@@ -32,7 +32,9 @@ function serializeValue(value) {
  * Creates a callable Cloud Function returning one page of documents from a
  * Firestore collection, with optional prefix search on a single field.
  *
- * Request data: { cursor?: string, searchTerm?: string, pageSize?: number }
+ * Request data: { cursor?: string, searchTerm?: string, pageSize?: number,
+ *   filters?: {[field]: string|boolean},
+ *   createdFrom?: number, createdTo?: number }
  * Response: { items: object[], nextCursor: string|null, hasMore: boolean }
  *
  * @param {object} config
@@ -42,6 +44,12 @@ function serializeValue(value) {
  * @param {string} [config.searchField] Field used for prefix search
  *   (supports dot notation for nested fields). When a searchTerm is
  *   provided, results are ordered by this field instead.
+ * @param {string[]} [config.filterableFields] Fields a caller may filter on
+ *   by equality via `filters`. Each needs a composite index with the
+ *   order field (see firestore.indexes.json).
+ * @param {string} [config.dateRangeField] Timestamp field that
+ *   `createdFrom`/`createdTo` bound. Ignored while searching, because a
+ *   range on this field cannot be combined with the search range.
  * @param {number} [config.pageSize] Default page size.
  * @param {boolean} [config.requireAdmin] Whether only admins may call this.
  *   Defaults to true, matching the rest of the admin dashboard's functions.
@@ -51,6 +59,8 @@ function createPaginatedListFunction({
   collection,
   orderByField = "createdAt",
   searchField = null,
+  filterableFields = [],
+  dateRangeField = null,
   pageSize = DEFAULT_PAGE_SIZE,
   requireAdmin = true,
 }) {
@@ -82,12 +92,42 @@ function createPaginatedListFunction({
     const db = admin.firestore();
     const isSearching = searchTerm.length > 0 && Boolean(searchField);
 
-    let query = isSearching ?
-      db.collection(collection)
+    let query = db.collection(collection);
+
+    const filters = data.filters && typeof data.filters === "object" ?
+      data.filters : {};
+    for (const field of Object.keys(filters)) {
+      const value = filters[field];
+      if (filterableFields.includes(field) &&
+          (typeof value === "string" || typeof value === "boolean")) {
+        query = query.where(field, "==", value);
+      }
+    }
+
+    if (isSearching) {
+      query = query
           .orderBy(searchField)
           .startAt(searchTerm)
-          .endAt(`${searchTerm}`) :
-      db.collection(collection).orderBy(orderByField, "desc");
+          .endAt(`${searchTerm}`);
+    } else {
+      const from = Number(data.createdFrom);
+      const to = Number(data.createdTo);
+      const hasRange = Boolean(dateRangeField) && (from > 0 || to > 0);
+      if (hasRange) {
+        // Firestore requires the first orderBy to be the range field.
+        if (from > 0) {
+          query = query.where(
+              dateRangeField, ">=", admin.firestore.Timestamp.fromMillis(from));
+        }
+        if (to > 0) {
+          query = query.where(
+              dateRangeField, "<=", admin.firestore.Timestamp.fromMillis(to));
+        }
+        query = query.orderBy(dateRangeField, "desc");
+      } else {
+        query = query.orderBy(orderByField, "desc");
+      }
+    }
 
     if (cursor) {
       const cursorDoc = await db.collection(collection).doc(cursor).get();

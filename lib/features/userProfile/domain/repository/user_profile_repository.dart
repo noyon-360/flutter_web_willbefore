@@ -1,5 +1,6 @@
 import '../../../../core/pagination/paginated_fetch.dart';
 import '../../../order/data/models/user_model.dart';
+import '../models/user_list_query.dart';
 
 class InviteUserResult {
   final String uid;
@@ -12,6 +13,7 @@ abstract class AllUserProfileRepository {
   Future<PaginatedFetchResult<UserModel>> getUsersPage({
     String? cursor,
     String? searchTerm,
+    UserListQuery query = const UserListQuery(),
   });
 
   /// Creates a new admin/user account with a random, never-shared password,

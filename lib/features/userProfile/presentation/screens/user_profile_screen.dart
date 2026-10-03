@@ -11,6 +11,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../order/data/models/user_model.dart';
 import '../../../order/domain/entities/order_entities.dart';
 import '../../../order/presentation/providers/order_provider.dart';
+import '../../domain/models/user_list_query.dart';
 import '../provider/all_user_provider.dart';
 
 class AllUserProfileScreen extends ConsumerStatefulWidget {
@@ -58,12 +59,79 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
 
     // A super admin manages admins and users; a plain admin manages only
     // users. Nobody ever sees/edits another super admin from this screen.
+    final query = userState.query;
+    final needsPending = query.hasPendingOrders != null;
+    final needsCart = query.hasCartItems != null;
+
+    // Pending / cart counts are per-user async providers (already watched by
+    // the row cells), so they are only known for rows that finished loading.
+    final pendingCounts = <String, int?>{};
+    final cartCounts = <String, int?>{};
+
+    var countsLoading = false;
     final filteredUsers = userState.users.where((user) {
       if (user.id == currentUserId) return false;
       if (user.role == UserRoles.superAdmin) return false;
       if (!isSuperAdmin && user.role != UserRoles.user) return false;
+
+      // The server already applies the created-date range, but not while a
+      // search is active, so enforce it here as well.
+      if (query.createdFrom != null &&
+          user.createdAt.isBefore(query.createdFrom!)) {
+        return false;
+      }
+      if (query.createdTo != null && user.createdAt.isAfter(query.createdTo!)) {
+        return false;
+      }
+      if (query.isActive != null && user.isActive != query.isActive) {
+        return false;
+      }
+      if (query.isEmailVerified != null &&
+          user.isEmailVerified != query.isEmailVerified) {
+        return false;
+      }
+      if (query.hasPhone != null &&
+          (user.phoneNumber?.trim().isNotEmpty ?? false) != query.hasPhone) {
+        return false;
+      }
+
+      if (needsPending) {
+        pendingCounts[user.id] = _pendingCount(user.id);
+      }
+      if (needsCart) {
+        cartCounts[user.id] = _cartCount(user.id);
+      }
+      if (query.hasPendingOrders != null) {
+        final count = pendingCounts[user.id];
+        if (count == null) countsLoading = true;
+        if (count == null || (count > 0) != query.hasPendingOrders) {
+          return false;
+        }
+      }
+      if (query.hasCartItems != null) {
+        final count = cartCounts[user.id];
+        if (count == null) countsLoading = true;
+        if (count == null || (count > 0) != query.hasCartItems) return false;
+      }
       return true;
     }).toList();
+
+    // Client-side filters only see loaded rows, so keep pulling pages until
+    // enough rows match (scrolling alone can't load more when few rows show).
+    final keepLoading =
+        query.hasClientFilters &&
+        filteredUsers.length < 20 &&
+        userState.hasMore &&
+        userState.errorMessage.isEmpty;
+    final isResolving = countsLoading || keepLoading;
+    if (keepLoading &&
+        !countsLoading &&
+        !userState.isLoading &&
+        !userState.isLoadingMore) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(userProvider.notifier).loadMore();
+      });
+    }
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -186,6 +254,23 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          _UserFilterBar(query: userState.query, isSuperAdmin: isSuperAdmin),
+          if (query.hasClientFilters && userState.hasMore)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Status, email, phone, pending-order and cart filters only '
+                  'apply to users loaded so far.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondaryHintColor,
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
 
           // Users Table
           Expanded(
@@ -299,7 +384,8 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                   ),
 
                   // Table Body
-                  if (userState.isLoading)
+                  if (userState.isLoading ||
+                      (filteredUsers.isEmpty && isResolving))
                     const Expanded(
                       child: Center(
                         child: CircularProgressIndicator(
@@ -308,20 +394,23 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                       ),
                     )
                   else if (filteredUsers.isEmpty)
-                    const Expanded(
+                    Expanded(
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.person_outline,
                               size: 64,
                               color: AppColors.textSecondaryHintColor,
                             ),
-                            SizedBox(height: 16),
+                            const SizedBox(height: 16),
                             Text(
-                              'No users found',
-                              style: TextStyle(
+                              userState.errorMessage.isEmpty
+                                  ? 'No users found'
+                                  : userState.errorMessage,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
                                 fontSize: 18,
                                 color: AppColors.textSecondaryHintColor,
                               ),
@@ -402,13 +491,7 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
                                     ),
                                     // Role
                                     Expanded(
-                                      child: isSuperAdmin
-                                          ? _RoleDropdown(
-                                              userId: user.id,
-                                              role: user.role,
-                                              isLoading: userState.isLoading,
-                                            )
-                                          : _RoleBadge(role: user.role),
+                                      child: _RoleBadge(role: user.role),
                                     ),
                                     // Created At
                                     Expanded(
@@ -451,6 +534,17 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
       ),
     );
   }
+
+  int? _pendingCount(String userId) => ref
+      .watch(userOrdersProvider(userId))
+      .whenOrNull(
+        data: (orders) =>
+            orders.where((o) => o.status == OrderStatus.pending).length,
+      );
+
+  int? _cartCount(String userId) => ref
+      .watch(userCartItemsProvider(userId))
+      .whenOrNull(data: (items) => items.length);
 
   void _openUserDetail(BuildContext context, UserModel user) {
     context.goNamed(
@@ -766,51 +860,189 @@ class _RoleBadge extends StatelessWidget {
   }
 }
 
-class _RoleDropdown extends ConsumerWidget {
-  final String userId;
-  final String role;
-  final bool isLoading;
+class _UserFilterBar extends ConsumerWidget {
+  final UserListQuery query;
+  final bool isSuperAdmin;
 
-  const _RoleDropdown({
-    required this.userId,
-    required this.role,
-    required this.isLoading,
-  });
+  const _UserFilterBar({required this.query, required this.isSuperAdmin});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Only admin/user are ever assignable from this screen.
-    final currentValue = UserRoles.assignableRoles.contains(role)
-        ? role
-        : UserRoles.user;
+    void update(UserListQuery next) =>
+        ref.read(userProvider.notifier).setQuery(next);
 
-    return DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
-        value: currentValue,
-        isDense: true,
-        items: UserRoles.assignableRoles
-            .map(
-              (r) =>
-                  DropdownMenuItem(value: r, child: Text(UserRoles.label(r))),
-            )
-            .toList(),
-        onChanged: isLoading
-            ? null
-            : (value) async {
-                if (value == null || value == role) return;
-                final success = await ref
-                    .read(userProvider.notifier)
-                    .updateUserRole(userId, value);
-                if (!context.mounted) return;
-                if (!success) {
-                  final error =
-                      ref.read(userProvider).updateError ??
-                      'Failed to update role.';
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(error)));
-                }
-              },
+    final dateLabel = switch ((query.createdFrom, query.createdTo)) {
+      (null, null) => 'Created date',
+      (final from?, final to?) =>
+        '${DateFormat('dd MMM yy').format(from)} - '
+            '${DateFormat('dd MMM yy').format(to)}',
+      (final from?, null) => 'From ${DateFormat('dd MMM yy').format(from)}',
+      (null, final to?) => 'Until ${DateFormat('dd MMM yy').format(to)}',
+    };
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (isSuperAdmin)
+            _FilterDropdown<String>(
+              label: 'Role',
+              value: query.role,
+              options: const [
+                ('All roles', null),
+                ('Admin', UserRoles.admin),
+                ('User', UserRoles.user),
+              ],
+              onChanged: (v) => update(query.copyWith(role: v)),
+            ),
+          _FilterDropdown<bool>(
+            label: 'Status',
+            value: query.isActive,
+            options: const [
+              ('All statuses', null),
+              ('Active', true),
+              ('Inactive', false),
+            ],
+            onChanged: (v) => update(query.copyWith(isActive: v)),
+          ),
+          _FilterDropdown<bool>(
+            label: 'Email',
+            value: query.isEmailVerified,
+            options: const [
+              ('Any email', null),
+              ('Verified', true),
+              ('Unverified', false),
+            ],
+            onChanged: (v) => update(query.copyWith(isEmailVerified: v)),
+          ),
+          _FilterDropdown<bool>(
+            label: 'Phone',
+            value: query.hasPhone,
+            options: const [
+              ('Any phone', null),
+              ('Has phone', true),
+              ('No phone', false),
+            ],
+            onChanged: (v) => update(query.copyWith(hasPhone: v)),
+          ),
+          _FilterDropdown<bool>(
+            label: 'Pending orders',
+            value: query.hasPendingOrders,
+            options: const [
+              ('Any pending orders', null),
+              ('Has pending', true),
+              ('None pending', false),
+            ],
+            onChanged: (v) => update(query.copyWith(hasPendingOrders: v)),
+          ),
+          _FilterDropdown<bool>(
+            label: 'In cart',
+            value: query.hasCartItems,
+            options: const [
+              ('Any cart', null),
+              ('Has items', true),
+              ('Empty cart', false),
+            ],
+            onChanged: (v) => update(query.copyWith(hasCartItems: v)),
+          ),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final now = DateTime.now();
+              final picked = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2020),
+                lastDate: now,
+                initialDateRange:
+                    query.createdFrom != null && query.createdTo != null
+                    ? DateTimeRange(
+                        start: query.createdFrom!,
+                        end: query.createdTo!,
+                      )
+                    : null,
+              );
+              if (picked == null) return;
+              update(
+                query.copyWith(
+                  createdFrom: picked.start,
+                  // Include the whole last day.
+                  createdTo: DateTime(
+                    picked.end.year,
+                    picked.end.month,
+                    picked.end.day,
+                    23,
+                    59,
+                    59,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.date_range, size: 18),
+            label: Text(dateLabel),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textAppBlack,
+              backgroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          if (query.hasFilters)
+            TextButton.icon(
+              onPressed: () => update(const UserListQuery()),
+              icon: const Icon(Icons.filter_alt_off, size: 18),
+              label: Text('Clear filters (${query.activeFilterCount})'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterDropdown<T> extends StatelessWidget {
+  final String label;
+  final T? value;
+  final List<(String, T?)> options;
+  final ValueChanged<T?> onChanged;
+
+  const _FilterDropdown({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = options.indexWhere((o) => o.$2 == value);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(
+          color: value == null
+              ? AppColors.borderColor
+              : AppColors.primaryLaurel,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: selected,
+          isDense: true,
+          hint: Text(label),
+          style: const TextStyle(fontSize: 13, color: AppColors.textAppBlack),
+          items: [
+            for (var i = 0; i < options.length; i++)
+              DropdownMenuItem(value: i, child: Text(options[i].$1)),
+          ],
+          onChanged: (i) {
+            if (i != null) onChanged(options[i].$2);
+          },
+        ),
       ),
     );
   }

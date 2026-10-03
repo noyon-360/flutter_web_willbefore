@@ -73,10 +73,6 @@ class UserDetailScreen extends ConsumerWidget {
           children: [
             _buildProfileCard(currentUser),
             const SizedBox(height: 24),
-            if (isSuperAdmin) ...[
-              _buildRoleCard(context, ref, currentUser),
-              const SizedBox(height: 24),
-            ],
             _buildOrdersSummary(ordersAsync),
             const SizedBox(height: 24),
             _buildOrdersList(context, ordersAsync),
@@ -270,63 +266,6 @@ class UserDetailScreen extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildRoleCard(BuildContext context, WidgetRef ref, UserModel user) {
-    final userState = ref.watch(userProvider);
-    final currentRole = UserRoles.assignableRoles.contains(user.role)
-        ? user.role
-        : UserRoles.user;
-
-    return _card(
-      title: 'Manage Role',
-      child: Row(
-        children: [
-          const Text(
-            'Current role:',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondaryColor),
-          ),
-          const SizedBox(width: 16),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: currentRole,
-              items: UserRoles.assignableRoles
-                  .map(
-                    (r) => DropdownMenuItem(
-                      value: r,
-                      child: Text(UserRoles.label(r)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: userState.isLoading
-                  ? null
-                  : (value) async {
-                      if (value == null || value == user.role) return;
-                      final success = await ref
-                          .read(userProvider.notifier)
-                          .updateUserRole(user.id, value);
-                      if (!context.mounted) return;
-                      if (success) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Role updated successfully'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      } else {
-                        final error =
-                            ref.read(userProvider).updateError ??
-                            'Failed to update role.';
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text(error)));
-                      }
-                    },
-            ),
-          ),
-        ],
-      ),
     );
   }
 
