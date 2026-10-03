@@ -51,14 +51,32 @@ class OrderDetailsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildOrderSummary(currentOrder),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(flex: 1, child: _buildCustomerInfo(currentOrder)),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 2, child: _buildOrderSummary(currentOrder)),
+                ],
+              ),
+            ),
+            // if (currentOrder.trackingNumber != null ||
+            //     currentOrder.labelUrl != null) ...[
+            //   const SizedBox(height: 24),
+            //   _buildShipmentInfo(currentOrder),
+            // ],
+            // const SizedBox(height: 24),
+            // _buildOrderItems(currentOrder),
+
+            // _buildOrderSummary(currentOrder),
             if (currentOrder.trackingNumber != null ||
                 currentOrder.labelUrl != null) ...[
               const SizedBox(height: 24),
               _buildShipmentInfo(currentOrder),
             ],
             const SizedBox(height: 24),
-            _buildCustomerInfo(currentOrder),
+            // _buildCustomerInfo(currentOrder),
             const SizedBox(height: 24),
             _buildOrderItems(currentOrder),
             const SizedBox(height: 24),
@@ -485,8 +503,9 @@ class OrderDetailsScreen extends ConsumerWidget {
   }
 
   Widget _buildFulfillButton(BuildContext context, Order currentOrder) {
-    if (currentOrder.status != OrderStatus.pending)
+    if (currentOrder.status != OrderStatus.pending) {
       return const SizedBox.shrink();
+    }
 
     return Center(
       child: ElevatedButton.icon(

@@ -375,7 +375,11 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
       // now pick a higher tier — e.g. to upgrade a customer for free — or
       // any other carrier, before a label is purchased.
       Map<String, dynamic> defaultRate;
-      if (isDomesticUS) {
+      final customerMatch = rates.where(_isCustomerRate);
+      if (customerMatch.isNotEmpty) {
+        // Honor the tier the customer picked at checkout.
+        defaultRate = customerMatch.first;
+      } else if (isDomesticUS) {
         final uspsRates = rates
             .where((r) => (r['provider'] as String).toUpperCase().contains('USPS'))
             .toList();
@@ -394,6 +398,26 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
     } finally {
       if (mounted) setState(() => _isFetchingRates = false);
     }
+  }
+
+  /// Whether [rate] is the same carrier + service the customer chose in the app.
+  bool _isCustomerRate(Map<String, dynamic> rate) {
+    final meta = _order?.metadata;
+    final token = meta?['shipping_service_token']?.toString();
+    final provider = meta?['shipping_provider']?.toString();
+    if (token == null || provider == null) return false;
+    final rateToken = rate['servicelevel'] is Map
+        ? rate['servicelevel']['token']?.toString()
+        : null;
+    return rate['provider']?.toString() == provider && rateToken == token;
+  }
+
+  String? get _customerChoiceLabel {
+    final meta = _order?.metadata;
+    final provider = meta?['shipping_provider'];
+    final service = meta?['shipping_service_name'];
+    if (provider == null) return null;
+    return '$provider — ${service ?? ''}'.trim();
   }
 
   String _extractShippoMessage(Map<String, dynamic> addr) {
@@ -974,6 +998,19 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
             'tier at no extra charge to them.',
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
+          if (_customerChoiceLabel != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Customer chose: $_customerChoiceLabel '
+              '(paid \$${_order!.metadata?['shipping_cost'] ?? '—'})',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            if (_rates != null && !_rates!.any(_isCustomerRate))
+              Text(
+                "That tier isn't available for this parcel — a default was selected.",
+                style: TextStyle(fontSize: 12, color: Colors.orange[800]),
+              ),
+          ],
           const SizedBox(height: 12),
           ...(_rates ?? []).map((rate) {
             final id = rate['object_id'];
@@ -996,7 +1033,11 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
                   : (_) => setState(() => _selectedRate = rate),
               selected: isSelected,
               dense: true,
-              title: Text('$provider — $service'),
+              title: Text(
+                _isCustomerRate(rate)
+                    ? '$provider — $service  (customer\'s choice)'
+                    : '$provider — $service',
+              ),
               subtitle: days != null ? Text('Est. $days day(s)') : null,
               secondary: Text(
                 '\$$amount $currency',

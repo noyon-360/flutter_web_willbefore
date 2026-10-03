@@ -130,6 +130,7 @@ class Order {
   final String? shippoTransactionId;
   final String? labelUrl;
   final DateTime? shippedAt;
+  final Map<String, dynamic>? metadata;
 
   const Order({
     required this.id,
@@ -149,6 +150,7 @@ class Order {
     this.shippoTransactionId,
     this.labelUrl,
     this.shippedAt,
+    this.metadata,
   });
 
   Order copyWith({
@@ -169,6 +171,7 @@ class Order {
     String? shippoTransactionId,
     String? labelUrl,
     DateTime? shippedAt,
+    Map<String, dynamic>? metadata,
   }) {
     return Order(
       id: id ?? this.id,
@@ -188,6 +191,7 @@ class Order {
       shippoTransactionId: shippoTransactionId ?? this.shippoTransactionId,
       labelUrl: labelUrl ?? this.labelUrl,
       shippedAt: shippedAt ?? this.shippedAt,
+      metadata: metadata ?? this.metadata,
     );
   }
 

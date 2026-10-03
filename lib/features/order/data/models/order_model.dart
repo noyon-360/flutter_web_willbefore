@@ -22,6 +22,7 @@ class OrderModel {
   final String? labelUrl;
   final DateTime? updatedAt;
   final DateTime? shippedAt;
+  final Map<String, dynamic>? metadata;
 
   const OrderModel({
     required this.id,
@@ -41,6 +42,7 @@ class OrderModel {
     this.labelUrl,
     this.updatedAt,
     this.shippedAt,
+    this.metadata,
   });
 
   factory OrderModel.fromEntity(Order order) {
@@ -62,6 +64,7 @@ class OrderModel {
       labelUrl: order.labelUrl,
       updatedAt: order.updatedAt,
       shippedAt: order.shippedAt,
+      metadata: order.metadata,
     );
   }
 
@@ -190,6 +193,9 @@ class OrderModel {
       labelUrl: data['labelUrl']?.toString(),
       updatedAt: parseTimestamp(data['updatedAt']),
       shippedAt: parseTimestamp(data['shippedAt']),
+      metadata: data['metadata'] is Map
+          ? Map<String, dynamic>.from(data['metadata'])
+          : null,
     );
 
     DPrint.log('✅ Successfully created OrderModel with ${items.length} items');
@@ -243,6 +249,7 @@ class OrderModel {
       labelUrl: labelUrl,
       updatedAt: updatedAt,
       shippedAt: shippedAt,
+      metadata: metadata,
     );
   }
 }
