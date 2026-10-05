@@ -1,11 +1,11 @@
 {
-    "name": "flutter_web_willbefore",
-    "short_name": "flutter_web_willbefore",
+    "name": "Smiles Treats",
+    "short_name": "Smiles Treats",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#hexcode",
-    "theme_color": "#hexcode",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#759676",
+    "description": "Smiles Treats admin dashboard for managing products, orders and customers.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -14,7 +14,7 @@ class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
 
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  late final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -33,35 +33,98 @@ class NotificationService {
     DPrint.log("Background message: ${message.messageId}");
   }
 
+  bool _initialized = false;
+  bool _tokenSyncStarted = false;
+
+  /// Passive setup only. Never shows a permission prompt; call
+  /// [enableNotifications] from a user action for that.
   Future<void> initialize() async {
-    tz.initializeTimeZones();
+    if (_initialized) return;
+    try {
+      if (!await isSupported()) {
+        DPrint.log("FCM not supported in this browser; skipping setup");
+        return;
+      }
 
-    // Firebase messaging on main.dart → safe to use here
-    if (!kIsWeb) {
-      FirebaseMessaging.onBackgroundMessage(_backgroundHandler);
+      tz.initializeTimeZones();
+
+      // Firebase messaging on main.dart → safe to use here
+      if (!kIsWeb) {
+        FirebaseMessaging.onBackgroundMessage(_backgroundHandler);
+        await _createNotificationChannel();
+      }
+
+      await _initializeLocalNotifications();
+      _initialized = true;
+
+      // Returning users who already granted permission: sync quietly.
+      await syncTokenIfGranted();
+    } catch (e) {
+      DPrint.error("Notification setup failed: $e");
     }
+  }
 
-   final granted = await _requestPermissions();
-
-    if (!kIsWeb) {
-      await _createNotificationChannel();
+  /// False in browsers without push support (e.g. a plain iOS Safari tab).
+  Future<bool> isSupported() async {
+    if (!kIsWeb) return true;
+    try {
+      return await FirebaseMessaging.instance.isSupported();
+    } catch (_) {
+      return false;
     }
+  }
 
-    await _initializeLocalNotifications();
+  /// Current permission without prompting. Null when unsupported.
+  Future<AuthorizationStatus?> permissionStatus() async {
+    if (!await isSupported()) return null;
+    try {
+      return (await _messaging.getNotificationSettings()).authorizationStatus;
+    } catch (e) {
+      DPrint.error("Failed to read notification settings: $e");
+      return null;
+    }
+  }
 
-    // Safe token handling for iOS + Android + Web
-    if (granted) _startFcmTokenSync();
+  /// Saves the FCM token only if permission was already granted. No prompt.
+  Future<void> syncTokenIfGranted() async {
+    if (!_initialized) return;
+    final status = await permissionStatus();
+    if (status == AuthorizationStatus.authorized ||
+        status == AuthorizationStatus.provisional) {
+      _startFcmTokenSync();
+    }
+  }
+
+  /// Asks for permission (call from a user gesture) and starts token sync.
+  Future<bool> enableNotifications() async {
+    try {
+      if (!_initialized) await initialize();
+      if (!_initialized) return false;
+      final granted = await _requestPermissions();
+      if (granted) _startFcmTokenSync();
+      return granted;
+    } catch (e) {
+      DPrint.error("Enable notifications failed: $e");
+      return false;
+    }
   }
 
   // ──────────────────────────────────────────────────────────────
   // 1. Permission
   // ──────────────────────────────────────────────────────────────
   Future<bool> _requestPermissions() async {
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    final current = await _messaging.getNotificationSettings();
+    if (current.authorizationStatus == AuthorizationStatus.denied) {
+      return false; // browsers won't re-prompt after a denial
+    }
+    final settings =
+        current.authorizationStatus == AuthorizationStatus.notDetermined
+        ? await _messaging.requestPermission(
+            alert: true,
+            badge: true,
+            sound: true,
+          )
+        : current;
     DPrint.log("Permission status: ${settings.authorizationStatus}");
     return settings.authorizationStatus == AuthorizationStatus.authorized ||
         settings.authorizationStatus == AuthorizationStatus.provisional;
@@ -136,6 +199,13 @@ class NotificationService {
   // 4. SAFE FCM TOKEN + AUTO UPDATE TO FIRESTORE
   // ──────────────────────────────────────────────────────────────
   void _startFcmTokenSync() {
+    // Always refresh/save the token (the user may have just logged in), but
+    // only attach the refresh listener once.
+    if (_tokenSyncStarted) {
+      _safeGetAndSaveToken();
+      return;
+    }
+    _tokenSyncStarted = true;
     // First attempt
     _safeGetAndSaveToken();
 

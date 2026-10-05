@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_willbefore/core/constants/app_colors.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:intl/intl.dart';
+import '../../../../services/notification_service.dart';
 import '../providers/notification_provider.dart';
 import '../../../../models/notification_model.dart';
 
@@ -68,6 +70,7 @@ class NotificationScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            const _EnablePushBanner(),
             const SizedBox(height: 24),
             Expanded(
               child: notificationsAsync.when(
@@ -417,5 +420,71 @@ class _NotificationTile extends ConsumerWidget {
     } else {
       return DateFormat('MMM d').format(date);
     }
+  }
+}
+
+
+/// Lets the user opt in to push notifications; hidden once granted/unsupported.
+class _EnablePushBanner extends StatefulWidget {
+  const _EnablePushBanner();
+
+  @override
+  State<_EnablePushBanner> createState() => _EnablePushBannerState();
+}
+
+class _EnablePushBannerState extends State<_EnablePushBanner> {
+  AuthorizationStatus? _status;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final service = NotificationService();
+    await service.syncTokenIfGranted(); // saves token for the logged-in user
+    final status = await service.permissionStatus();
+    if (mounted) setState(() => _status = status);
+  }
+
+  Future<void> _enable() async {
+    setState(() => _busy = true);
+    await NotificationService().enableNotifications();
+    await _refresh();
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _status;
+    if (status == null ||
+        status == AuthorizationStatus.authorized ||
+        status == AuthorizationStatus.provisional) {
+      return const SizedBox.shrink();
+    }
+    final denied = status == AuthorizationStatus.denied;
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Row(
+        children: [
+          const Icon(Icons.notifications_active_outlined, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              denied
+                  ? 'Push notifications are blocked. Enable them in your browser settings.'
+                  : 'Get push notifications on this device.',
+            ),
+          ),
+          if (!denied)
+            TextButton(
+              onPressed: _busy ? null : _enable,
+              child: const Text('Enable'),
+            ),
+        ],
+      ),
+    );
   }
 }

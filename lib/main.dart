@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,13 +19,15 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.web);
 
-  await NotificationService().initialize();
-
   // functions.useFunctionsEmulator('localhost', 5001);
 
   setPathUrlStrategy();
 
   runApp(const MyApp());
+
+  // Not awaited: push is unsupported in plain iOS Safari tabs and must never
+  // block (or crash) app startup.
+  // unawaited(NotificationService().initialize());
 }
 
 class MyApp extends StatelessWidget {
@@ -42,7 +46,7 @@ class MyApp extends StatelessWidget {
     return ProviderScope(
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
-        title: 'Flutter Demo',
+        title: 'Smiles Treats',
         theme: AppTheme.light,
 
         routerConfig: AppRouter.router,
