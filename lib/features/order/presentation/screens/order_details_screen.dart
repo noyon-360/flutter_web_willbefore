@@ -46,48 +46,53 @@ class OrderDetailsScreen extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(flex: 1, child: _buildCustomerInfo(currentOrder)),
-                  const SizedBox(width: 16),
-                  Expanded(flex: 2, child: _buildOrderSummary(currentOrder)),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 600;
+          final stacked = constraints.maxWidth < 700;
+          return SingleChildScrollView(
+            padding: EdgeInsets.all(narrow ? 12 : 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (stacked) ...[
+                  _buildCustomerInfo(currentOrder),
+                  const SizedBox(height: 16),
+                  _buildOrderSummary(currentOrder),
+                ] else
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: _buildCustomerInfo(currentOrder),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 2,
+                          child: _buildOrderSummary(currentOrder),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (currentOrder.trackingNumber != null ||
+                    currentOrder.labelUrl != null) ...[
+                  const SizedBox(height: 24),
+                  _buildShipmentInfo(currentOrder),
                 ],
-              ),
+                const SizedBox(height: 24),
+                _buildOrderItems(currentOrder),
+                const SizedBox(height: 24),
+                _buildShippingInfo(currentOrder),
+                const SizedBox(height: 24),
+                _buildFulfillButton(context, currentOrder),
+                const SizedBox(height: 24),
+                _buildActionButtons(context, ref, currentOrder),
+              ],
             ),
-            // if (currentOrder.trackingNumber != null ||
-            //     currentOrder.labelUrl != null) ...[
-            //   const SizedBox(height: 24),
-            //   _buildShipmentInfo(currentOrder),
-            // ],
-            // const SizedBox(height: 24),
-            // _buildOrderItems(currentOrder),
-
-            // _buildOrderSummary(currentOrder),
-            if (currentOrder.trackingNumber != null ||
-                currentOrder.labelUrl != null) ...[
-              const SizedBox(height: 24),
-              _buildShipmentInfo(currentOrder),
-            ],
-            const SizedBox(height: 24),
-            // _buildCustomerInfo(currentOrder),
-            const SizedBox(height: 24),
-            _buildOrderItems(currentOrder),
-            const SizedBox(height: 24),
-            _buildShippingInfo(currentOrder),
-            const SizedBox(height: 24),
-            // _buildStatusUpdateSection(context, ref, currentOrder),
-            _buildFulfillButton(context, currentOrder),
-            const SizedBox(height: 24),
-            _buildActionButtons(context, ref, currentOrder),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -241,14 +246,16 @@ class OrderDetailsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           if (currentOrder.trackingNumber != null) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 12,
+              runSpacing: 4,
               children: [
                 const Text(
                   'Tracking Number:',
                   style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
-                Text(
+                SelectableText(
                   currentOrder.trackingNumber!,
                   style: const TextStyle(
                     fontSize: 14,
@@ -259,45 +266,60 @@ class OrderDetailsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
           ],
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              if (currentOrder.labelUrl != null)
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () =>
-                        launchUrl(Uri.parse(currentOrder.labelUrl!)),
-                    icon: const Icon(Icons.print, size: 18),
-                    label: const Text('View Label'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+          LayoutBuilder(
+            builder: (context, c) {
+              final labelButton = currentOrder.labelUrl == null
+                  ? null
+                  : ElevatedButton.icon(
+                      onPressed: () =>
+                          launchUrl(Uri.parse(currentOrder.labelUrl!)),
+                      icon: const Icon(Icons.print, size: 18),
+                      label: const Text('View Label'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-              if (currentOrder.labelUrl != null &&
-                  currentOrder.trackingUrl != null)
-                const SizedBox(width: 12),
-              if (currentOrder.trackingUrl != null)
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () =>
-                        launchUrl(Uri.parse(currentOrder.trackingUrl!)),
-                    icon: const Icon(Icons.location_on, size: 18),
-                    label: const Text('Track Package'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                    );
+              final trackButton = currentOrder.trackingUrl == null
+                  ? null
+                  : OutlinedButton.icon(
+                      onPressed: () =>
+                          launchUrl(Uri.parse(currentOrder.trackingUrl!)),
+                      icon: const Icon(Icons.location_on, size: 18),
+                      label: const Text('Track Package'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-            ],
+                    );
+              final buttons = [?labelButton, ?trackButton];
+
+              // Narrow: stack full-width buttons instead of squeezing them.
+              if (c.maxWidth < 360) {
+                return Column(
+                  children: [
+                    for (final (i, b) in buttons.indexed) ...[
+                      if (i > 0) const SizedBox(height: 12),
+                      SizedBox(width: double.infinity, child: b),
+                    ],
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  for (final (i, b) in buttons.indexed) ...[
+                    if (i > 0) const SizedBox(width: 12),
+                    Expanded(child: b),
+                  ],
+                ],
+              );
+            },
           ),
         ],
       ),

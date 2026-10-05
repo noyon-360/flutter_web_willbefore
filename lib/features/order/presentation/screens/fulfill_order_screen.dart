@@ -164,7 +164,8 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
 
     final updated = ShippingAddress(
       fullName: _nameController.text.trim(),
-      phoneNumber: UsPhone.normalize(_phoneController.text) ??
+      phoneNumber:
+          UsPhone.normalize(_phoneController.text) ??
           _phoneController.text.trim(),
       email: _emailController.text.trim(),
       addressLine1: _address1Controller.text.trim(),
@@ -367,7 +368,8 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
 
       final rates = List<Map<String, dynamic>>.from(rawRates)
         ..sort(
-          (a, b) => double.parse(a['amount']).compareTo(double.parse(b['amount'])),
+          (a, b) =>
+              double.parse(a['amount']).compareTo(double.parse(b['amount'])),
         );
 
       // Default pre-selection mirrors the old automatic behavior (cheapest
@@ -381,7 +383,9 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         defaultRate = customerMatch.first;
       } else if (isDomesticUS) {
         final uspsRates = rates
-            .where((r) => (r['provider'] as String).toUpperCase().contains('USPS'))
+            .where(
+              (r) => (r['provider'] as String).toUpperCase().contains('USPS'),
+            )
             .toList();
         defaultRate = uspsRates.isNotEmpty ? uspsRates.first : rates.first;
       } else {
@@ -666,178 +670,186 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSummaryCard(),
-            const SizedBox(height: 24),
-
-            // Parcel Details Input
-            if (_labelUrl == null) ...[
-              _buildParcelDetailsCard(),
+      body: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          padding: EdgeInsets.all(constraints.maxWidth < 600 ? 12 : 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSummaryCard(),
               const SizedBox(height: 24),
-            ],
 
-            if (_labelUrl == null && _rates == null)
-              Center(
-                child: ElevatedButton.icon(
-                  onPressed: _isFetchingRates || _isEditingAddress
-                      ? null
-                      : _fetchRates,
-                  icon: _isFetchingRates
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.local_shipping, color: AppColors.white),
-                  label: Text(
-                    _isFetchingRates ? 'Fetching Rates...' : 'Get Shipping Rates',
-                    style: const TextStyle(color: AppColors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryLaurel,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                  ),
-                ),
-              ),
+              // Parcel Details Input
+              if (_labelUrl == null) ...[
+                _buildParcelDetailsCard(),
+                const SizedBox(height: 24),
+              ],
 
-            if (_labelUrl == null && _rates != null) ...[
-              _buildRateSelectionCard(),
-              const SizedBox(height: 16),
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    OutlinedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () => setState(() {
-                              _rates = null;
-                              _selectedRate = null;
-                            }),
-                      child: const Text('Back'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: _isLoading || _selectedRate == null
-                          ? null
-                          : _buyLabel,
-                      icon: _isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.print, color: AppColors.white),
-                      label: Text(
-                        _isLoading ? 'Purchasing...' : 'Buy Selected Label',
-                        style: const TextStyle(color: AppColors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryLaurel,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            if (_labelUrl != null) ...[
-              _buildSuccessCard(),
-              const SizedBox(height: 16),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => launchUrl(Uri.parse(_labelUrl!)),
-                    icon: const Icon(Icons.print),
-                    label: const Text('Print Label'),
-                  ),
-                  if (_trackingUrl != null && _trackingUrl!.isNotEmpty)
-                    OutlinedButton.icon(
-                      onPressed: () => launchUrl(Uri.parse(_trackingUrl!)),
-                      icon: const Icon(Icons.location_on),
-                      label: const Text('Track Package'),
-                    ),
-                  OutlinedButton.icon(
-                    onPressed: _isVoiding ? null : _voidLabelAndStartOver,
-                    icon: _isVoiding
+              if (_labelUrl == null && _rates == null)
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: _isFetchingRates || _isEditingAddress
+                        ? null
+                        : _fetchRates,
+                    icon: _isFetchingRates
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
-                        : const Icon(Icons.undo, color: Colors.red),
+                        : const Icon(
+                            Icons.local_shipping,
+                            color: AppColors.white,
+                          ),
                     label: Text(
-                      _isVoiding ? 'Voiding...' : 'Void Label & Start Over',
-                      style: const TextStyle(color: Colors.red),
+                      _isFetchingRates
+                          ? 'Fetching Rates...'
+                          : 'Get Shipping Rates',
+                      style: const TextStyle(color: AppColors.white),
                     ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.red),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryLaurel,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 16,
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ],
-
-            if (_error != null)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(top: 24),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red[200]!),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: Colors.red[700],
-                          size: 20,
+
+              if (_labelUrl == null && _rates != null) ...[
+                _buildRateSelectionCard(),
+                const SizedBox(height: 16),
+                Center(
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      OutlinedButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () => setState(() {
+                                _rates = null;
+                                _selectedRate = null;
+                              }),
+                        child: const Text('Back'),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: _isLoading || _selectedRate == null
+                            ? null
+                            : _buyLabel,
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.print, color: AppColors.white),
+                        label: Text(
+                          _isLoading ? 'Purchasing...' : 'Buy Selected Label',
+                          style: const TextStyle(color: AppColors.white),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Fulfillment Issue',
-                          style: TextStyle(
-                            color: Colors.red[900],
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryLaurel,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 16,
                           ),
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              if (_labelUrl != null) ...[
+                _buildSuccessCard(),
+                const SizedBox(height: 16),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => launchUrl(Uri.parse(_labelUrl!)),
+                      icon: const Icon(Icons.print),
+                      label: const Text('Print Label'),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _error!,
-                      style: TextStyle(color: Colors.red[800], height: 1.4),
+                    if (_trackingUrl != null && _trackingUrl!.isNotEmpty)
+                      OutlinedButton.icon(
+                        onPressed: () => launchUrl(Uri.parse(_trackingUrl!)),
+                        icon: const Icon(Icons.location_on),
+                        label: const Text('Track Package'),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: _isVoiding ? null : _voidLabelAndStartOver,
+                      icon: _isVoiding
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.undo, color: Colors.red),
+                      label: Text(
+                        _isVoiding ? 'Voiding...' : 'Void Label & Start Over',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.red),
+                      ),
                     ),
                   ],
                 ),
-              ),
-          ],
+              ],
+
+              if (_error != null)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(top: 24),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: Colors.red[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Fulfillment Issue',
+                            style: TextStyle(
+                              color: Colors.red[900],
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _error!,
+                        style: TextStyle(color: Colors.red[800], height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -906,56 +918,56 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
     );
   }
 
+  /// Two fields side by side, or stacked when [narrow].
+  Widget _pair(bool narrow, Widget first, Widget second) {
+    if (narrow) {
+      return Column(children: [first, const SizedBox(height: 8), second]);
+    }
+    return Row(
+      children: [
+        Expanded(child: first),
+        const SizedBox(width: 8),
+        Expanded(child: second),
+      ],
+    );
+  }
+
   Widget _buildAddressEditForm() {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildTextField(controller: _nameController, label: 'Full Name'),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _buildTextField(controller: _phoneController, label: 'Phone'),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildTextField(controller: _emailController, label: 'Email'),
-            ),
-          ],
+        _pair(
+          narrow,
+          _buildTextField(controller: _phoneController, label: 'Phone'),
+          _buildTextField(controller: _emailController, label: 'Email'),
         ),
         const SizedBox(height: 8),
-        _buildTextField(controller: _address1Controller, label: 'Address Line 1'),
+        _buildTextField(
+          controller: _address1Controller,
+          label: 'Address Line 1',
+        ),
         const SizedBox(height: 8),
         _buildTextField(
           controller: _address2Controller,
           label: 'Address Line 2 (optional)',
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _buildTextField(controller: _cityController, label: 'City'),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildTextField(controller: _stateController, label: 'State'),
-            ),
-          ],
+        _pair(
+          narrow,
+          _buildTextField(controller: _cityController, label: 'City'),
+          _buildTextField(controller: _stateController, label: 'State'),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _buildTextField(controller: _zipController, label: 'Postal Code'),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildTextField(
-                controller: _countryController,
-                label: 'Country (e.g. US)',
-              ),
-            ),
-          ],
+        _pair(
+          narrow,
+          _buildTextField(controller: _zipController, label: 'Postal Code'),
+          _buildTextField(
+            controller: _countryController,
+            label: 'Country (e.g. US)',
+          ),
         ),
         const SizedBox(height: 12),
         Align(
@@ -1017,8 +1029,9 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
             final provider = rate['provider']?.toString() ?? 'Unknown';
             final service =
                 (rate['servicelevel'] is Map
-                    ? rate['servicelevel']['name']
-                    : null)?.toString() ??
+                        ? rate['servicelevel']['name']
+                        : null)
+                    ?.toString() ??
                 '';
             final amount = rate['amount']?.toString() ?? '0';
             final currency = rate['currency']?.toString() ?? 'USD';
@@ -1094,52 +1107,56 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildTextField(
-                  controller: _lengthController,
-                  label: 'Length',
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildTextField(
-                  controller: _widthController,
-                  label: 'Width',
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildTextField(
-                  controller: _heightController,
-                  label: 'Height',
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 75,
-                child: DropdownButtonFormField<String>(
-                  key: const ValueKey('distance_unit'),
-                  value: ['in', 'cm', 'ft', 'mm'].contains(_distanceUnit)
-                      ? _distanceUnit
-                      : 'in',
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Unit',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 0,
+          LayoutBuilder(
+            builder: (context, c) {
+              final length = _buildTextField(
+                controller: _lengthController,
+                label: 'Length',
+              );
+              final width = _buildTextField(
+                controller: _widthController,
+                label: 'Width',
+              );
+              final height = _buildTextField(
+                controller: _heightController,
+                label: 'Height',
+              );
+              final unit = _distanceUnitDropdown();
+
+              if (c.maxWidth < 400) {
+                // Narrow: two rows instead of four cramped fields.
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: length),
+                        const SizedBox(width: 8),
+                        Expanded(child: width),
+                      ],
                     ),
-                  ),
-                  items: ['in', 'cm', 'ft', 'mm']
-                      .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _distanceUnit = v!),
-                ),
-              ),
-            ],
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: height),
+                        const SizedBox(width: 8),
+                        SizedBox(width: 75, child: unit),
+                      ],
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: length),
+                  const SizedBox(width: 8),
+                  Expanded(child: width),
+                  const SizedBox(width: 8),
+                  Expanded(child: height),
+                  const SizedBox(width: 8),
+                  SizedBox(width: 75, child: unit),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
           Row(
@@ -1178,6 +1195,28 @@ class _FulfillOrderScreenState extends ConsumerState<FullfillOrderScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _distanceUnitDropdown() {
+    return DropdownButtonFormField<String>(
+      key: const ValueKey('distance_unit'),
+      value: ['in', 'cm', 'ft', 'mm'].contains(_distanceUnit)
+          ? _distanceUnit
+          : 'in',
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Unit',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+      ),
+      items: [
+        'in',
+        'cm',
+        'ft',
+        'mm',
+      ].map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+      onChanged: (v) => setState(() => _distanceUnit = v!),
     );
   }
 

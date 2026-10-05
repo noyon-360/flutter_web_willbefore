@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_willbefore/core/routes/route_endpoint.dart';
@@ -19,6 +21,10 @@ class OrdersScreen extends ConsumerStatefulWidget {
 class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
   OrderStatus? _selectedStatusFilter;
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _horizontalController = ScrollController();
+
+  /// Below this width the table scrolls sideways instead of squeezing.
+  static const double _minTableWidth = 1000;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -35,6 +41,7 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _horizontalController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -55,56 +62,66 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
       'Rendering OrdersScreen with ${adminOrderState.orders} filtered orders',
     );
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTopBar(filteredOrders.length, adminOrderState.usersCount),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _searchController,
-              onSubmitted: (value) => ref
-                  .read(adminOrderProvider.notifier)
-                  .search(value.trim()),
-              decoration: InputDecoration(
-                hintText: 'Search orders by customer email...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          ref.read(adminOrderProvider.notifier).search('');
-                        },
-                      ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 600;
+        return Scaffold(
+          backgroundColor: Colors.grey[50],
+          body: Padding(
+            padding: EdgeInsets.all(narrow ? 12 : 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTopBar(
+                  filteredOrders.length,
+                  adminOrderState.usersCount,
+                  narrow,
                 ),
-                filled: true,
-                fillColor: Colors.white,
-              ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _searchController,
+                  onSubmitted: (value) => ref
+                      .read(adminOrderProvider.notifier)
+                      .search(value.trim()),
+                  decoration: InputDecoration(
+                    hintText: 'Search orders by customer email...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              ref.read(adminOrderProvider.notifier).search('');
+                            },
+                          ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: _buildOrdersTable(
+                    filteredOrders,
+                    adminOrderState,
+                    _scrollController,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _buildOrdersTable(
-                filteredOrders,
-                adminOrderState,
-                _scrollController,
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildTopBar(int totalOrders, int totalUsers) {
+  Widget _buildTopBar(int totalOrders, int totalUsers, bool narrow) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      padding: EdgeInsets.all(narrow ? 16 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -116,10 +133,15 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 24,
+        runSpacing: 12,
         children: [
-          Row(
+          Wrap(
+            spacing: narrow ? 24 : 40,
+            runSpacing: 12,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,7 +165,6 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
                   ),
                 ],
               ),
-              const SizedBox(width: 40),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -237,100 +258,139 @@ class _AdminOrdersScreenState extends ConsumerState<OrdersScreen> {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            child: const Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Order Details',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Customer',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Products',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    'Total',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    'Date',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Status',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: state.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : orders.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+      child: LayoutBuilder(
+        builder: (context, constraints) => Scrollbar(
+          controller: _horizontalController,
+          child: SingleChildScrollView(
+            controller: _horizontalController,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: max(constraints.maxWidth, _minTableWidth),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
+                      ),
+                    ),
+                    child: const Row(
                       children: [
-                        Icon(
-                          Icons.shopping_cart_outlined,
-                          size: 64,
-                          color: Colors.grey,
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            'Order Details',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
                         ),
-                        SizedBox(height: 16),
-                        Text(
-                          'No orders found',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            'Customer',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            'Products',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Text(
+                            'Total',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Text(
+                            'Date',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            'Status',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  )
-                : ListView.builder(
-                    controller: scrollController,
-                    itemCount: orders.length + (state.isLoadingMore ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index >= orders.length) {
-                        return const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-                      return _buildOrderRow(orders[index], state.isUpdating);
-                    },
                   ),
+                  Expanded(
+                    child: state.isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : orders.isEmpty
+                        ? const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.shopping_cart_outlined,
+                                  size: 64,
+                                  color: Colors.grey,
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'No orders found',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: scrollController,
+                            itemCount:
+                                orders.length + (state.isLoadingMore ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index >= orders.length) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              }
+                              return _buildOrderRow(
+                                orders[index],
+                                state.isUpdating,
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
