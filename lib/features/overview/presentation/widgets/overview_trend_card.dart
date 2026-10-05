@@ -78,15 +78,17 @@ class OverviewTrendCard extends ConsumerWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Text(
-                'Overview',
+                'Performance',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textSecondaryColor,
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Tooltip(
                     message:
@@ -108,13 +110,17 @@ class OverviewTrendCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  for (final p in StatPeriod.values)
-                    _Pill(
-                      label: p.label,
-                      selected: p == controls.period,
-                      onTap: () => notifier.setPeriod(p),
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final p in StatPeriod.values)
+                        _Pill(
+                          label: p.label,
+                          selected: p == controls.period,
+                          onTap: () => notifier.setPeriod(p),
+                        ),
+                    ],
+                  ),
                   IconButton(
                     tooltip: 'Refresh',
                     icon: const Icon(Icons.refresh, size: 20),

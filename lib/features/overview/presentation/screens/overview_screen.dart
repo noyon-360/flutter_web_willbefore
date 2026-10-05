@@ -29,17 +29,25 @@ class OverviewScreen extends StatelessWidget {
                   ],
                 );
               }
-              // Narrow window: two cards per row.
-              final w = (c.maxWidth - 24) / 2;
-              return Wrap(
-                spacing: 24,
-                runSpacing: 24,
+              // Medium: two cards per row.
+              if (c.maxWidth >= 600) {
+                final w = (c.maxWidth - 24) / 2;
+                return Wrap(
+                  spacing: 24,
+                  runSpacing: 24,
+                  children: [
+                    for (final m in StatMetric.values)
+                      SizedBox(width: w, child: _KpiCard(metric: m)),
+                  ],
+                );
+              }
+              // Mobile: one card per row.
+              return Column(
                 children: [
-                  for (final m in StatMetric.values)
-                    SizedBox(
-                      width: w,
-                      child: _KpiCard(metric: m),
-                    ),
+                  for (final (i, m) in StatMetric.values.indexed) ...[
+                    if (i > 0) const SizedBox(height: 16),
+                    _KpiCard(metric: m),
+                  ],
                 ],
               );
             },
