@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutx_core/core/debug_print.dart';
@@ -18,6 +20,10 @@ class CategoriesScreen extends ConsumerStatefulWidget {
 
 class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _horizontalController = ScrollController();
+
+  /// Below this width the table scrolls sideways instead of squeezing.
+  static const double _minTableWidth = 600;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -31,6 +37,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _horizontalController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -124,238 +131,258 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                   ),
                 ],
               ),
-              child: Column(
-                children: [
-                  // Table Header
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: const Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            'Categories Name',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Date',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 100,
-                          child: Text(
-                            'Action',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Table Body
-                  if (categoriesState.isLoading)
-                    const Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryLaurel,
-                        ),
-                      ),
-                    )
-                  else if (categories.isEmpty)
-                    const Expanded(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.category_outlined,
-                              size: 64,
-                              color: AppColors.textSecondaryHintColor,
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'No categories found',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: AppColors.textSecondaryHintColor,
+              child: LayoutBuilder(
+                builder: (context, constraints) => Scrollbar(
+                  controller: _horizontalController,
+                  child: SingleChildScrollView(
+                    controller: _horizontalController,
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: max(constraints.maxWidth, _minTableWidth),
+                      child: Column(
+                        children: [
+                          // Table Header
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(12),
+                                topRight: Radius.circular(12),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        itemCount:
-                            categories.length +
-                            (categoriesState.isLoadingMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= categories.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16),
+                            child: const Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    'Categories Name',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    'Date',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 100,
+                                  child: Text(
+                                    'Action',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Table Body
+                          if (categoriesState.isLoading)
+                            const Expanded(
                               child: Center(
                                 child: CircularProgressIndicator(
                                   color: AppColors.primaryLaurel,
                                 ),
                               ),
-                            );
-                          }
-
-                          final category = categories[index];
-                          final isLast = index == categories.length - 1;
-
-                          DPrint.log("Category Image ${category.imageUrl}");
-
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: isLast
-                                      ? Colors.transparent
-                                      : AppColors.borderColor,
+                            )
+                          else if (categories.isEmpty)
+                            const Expanded(
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.category_outlined,
+                                      size: 64,
+                                      color: AppColors.textSecondaryHintColor,
+                                    ),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'No categories found',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: AppColors.textSecondaryHintColor,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                // Category Name with Image
-                                Expanded(
-                                  flex: 3,
-                                  child: Row(
-                                    children: [
-                                      // Category Image
-                                      Container(
-                                        width: 60,
-                                        height: 60,
-                                        clipBehavior: Clip.antiAlias,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          color: AppColors.bgColor,
-                                        ),
-                                        child: category.imageUrl != null
-                                            ? AppCachedImage(
-                                                imageUrl: category.imageUrl!,
-
-                                                errorIcon: Icons.category,
-                                                errorIconColor:
-                                                    AppColors.iconSelectedColor,
-                                              )
-                                            // ClipRRect(
-                                            //     borderRadius:
-                                            //         BorderRadius.circular(8),
-                                            //     child: Image.network(
-                                            //       category.imageUrl!,
-                                            //       fit: BoxFit.cover,
-                                            //       errorBuilder: (context, error,
-                                            //           stackTrace) {
-                                            //         return const Icon(
-                                            //           Icons.category,
-                                            //           color: AppColors
-                                            //               .primaryLaurel,
-                                            //           size: 24,
-                                            //         );
-                                            //       },
-                                            //     ),
-                                            // )
-                                            : const Icon(
-                                                Icons.category,
-                                                color: AppColors.primaryLaurel,
-                                                size: 24,
-                                              ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      // Category Name
-                                      Expanded(
-                                        child: Text(
-                                          category.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            color: AppColors.textAppBlack,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Date
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    DateFormat(
-                                      'dd MMM yyyy hh:mm a',
-                                    ).format(category.createdAt),
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondaryColor,
-                                    ),
-                                  ),
-                                ),
-
-                                // Actions
-                                SizedBox(
-                                  width: 100,
-                                  child: Row(
-                                    children: [
-                                      IconButton(
-                                        onPressed: () =>
-                                            _showEditCategoryDialog(
-                                              context,
-                                              category,
-                                            ),
-                                        icon: const Icon(
-                                          Icons.edit_outlined,
-                                          size: 18,
+                            )
+                          else
+                            Expanded(
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                itemCount:
+                                    categories.length +
+                                    (categoriesState.isLoadingMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index >= categories.length) {
+                                    return const Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: Center(
+                                        child: CircularProgressIndicator(
                                           color: AppColors.primaryLaurel,
                                         ),
                                       ),
-                                      IconButton(
-                                        onPressed: categoriesState.isDeleting
-                                            ? null
-                                            : () => _showDeleteDialog(
-                                                context,
-                                                category.id,
-                                              ),
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          size: 18,
-                                          color: Colors.red,
+                                    );
+                                  }
+
+                                  final category = categories[index];
+                                  final isLast = index == categories.length - 1;
+
+                                  DPrint.log(
+                                    "Category Image ${category.imageUrl}",
+                                  );
+
+                                  return Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: isLast
+                                              ? Colors.transparent
+                                              : AppColors.borderColor,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        // Category Name with Image
+                                        Expanded(
+                                          flex: 3,
+                                          child: Row(
+                                            children: [
+                                              // Category Image
+                                              Container(
+                                                width: 60,
+                                                height: 60,
+                                                clipBehavior: Clip.antiAlias,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  color: AppColors.bgColor,
+                                                ),
+                                                child: category.imageUrl != null
+                                                    ? AppCachedImage(
+                                                        imageUrl:
+                                                            category.imageUrl!,
+
+                                                        errorIcon:
+                                                            Icons.category,
+                                                        errorIconColor: AppColors
+                                                            .iconSelectedColor,
+                                                      )
+                                                    // ClipRRect(
+                                                    //     borderRadius:
+                                                    //         BorderRadius.circular(8),
+                                                    //     child: Image.network(
+                                                    //       category.imageUrl!,
+                                                    //       fit: BoxFit.cover,
+                                                    //       errorBuilder: (context, error,
+                                                    //           stackTrace) {
+                                                    //         return const Icon(
+                                                    //           Icons.category,
+                                                    //           color: AppColors
+                                                    //               .primaryLaurel,
+                                                    //           size: 24,
+                                                    //         );
+                                                    //       },
+                                                    //     ),
+                                                    // )
+                                                    : const Icon(
+                                                        Icons.category,
+                                                        color: AppColors
+                                                            .primaryLaurel,
+                                                        size: 24,
+                                                      ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              // Category Name
+                                              Expanded(
+                                                child: Text(
+                                                  category.name,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w500,
+                                                    color:
+                                                        AppColors.textAppBlack,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        // Date
+                                        Expanded(
+                                          flex: 2,
+                                          child: Text(
+                                            DateFormat(
+                                              'dd MMM yyyy hh:mm a',
+                                            ).format(category.createdAt),
+                                            style: const TextStyle(
+                                              color:
+                                                  AppColors.textSecondaryColor,
+                                            ),
+                                          ),
+                                        ),
+
+                                        // Actions
+                                        SizedBox(
+                                          width: 100,
+                                          child: Row(
+                                            children: [
+                                              IconButton(
+                                                onPressed: () =>
+                                                    _showEditCategoryDialog(
+                                                      context,
+                                                      category,
+                                                    ),
+                                                icon: const Icon(
+                                                  Icons.edit_outlined,
+                                                  size: 18,
+                                                  color:
+                                                      AppColors.primaryLaurel,
+                                                ),
+                                              ),
+                                              IconButton(
+                                                onPressed:
+                                                    categoriesState.isDeleting
+                                                    ? null
+                                                    : () => _showDeleteDialog(
+                                                        context,
+                                                        category.id,
+                                                      ),
+                                                icon: const Icon(
+                                                  Icons.delete_outline,
+                                                  size: 18,
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
-                          );
-                        },
+                        ],
                       ),
                     ),
-                ],
+                  ),
+                ),
               ),
             ),
           ),
