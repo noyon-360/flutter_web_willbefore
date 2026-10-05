@@ -14,15 +14,21 @@ class Sidebar extends ConsumerWidget {
   final NavigationItem selectedItem;
   final Function(NavigationItem) onItemSelected;
 
+  /// Icon-only rail when true, full sidebar when false.
+  final bool collapsed;
+
   const Sidebar({
     super.key,
     required this.selectedItem,
     required this.onItemSelected,
+    this.collapsed = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final unreadChatCount = ref.watch(openChatsProvider).maybeWhen(
+    final unreadChatCount = ref
+        .watch(openChatsProvider)
+        .maybeWhen(
           data: (chats) => chats
               .where((c) => c.unreadForAdmin && c.status == ChatStatus.open)
               .length,
@@ -32,45 +38,51 @@ class Sidebar extends ConsumerWidget {
     return Material(
       color: Colors.white,
       child: SizedBox(
-        width: 250,
+        width: collapsed ? 72 : 250,
         child: Column(
           children: [
             // Logo Section
-            Container(padding: const EdgeInsets.all(24), child: AppLogo()),
+            Container(
+              padding: EdgeInsets.all(collapsed ? 12 : 24),
+              child: collapsed
+                  ? const AppLogo(height: 48, width: 48)
+                  : const AppLogo(),
+            ),
 
             /// [Version] Show the update version
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: FutureBuilder<PackageInfo>(
-                future: PackageInfo.fromPlatform(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return const Text(
-                      'Version unavailable',
-                      style: TextStyle(color: Colors.red, fontSize: 12),
-                    );
-                  }
+            if (!collapsed)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: FutureBuilder<PackageInfo>(
+                  future: PackageInfo.fromPlatform(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return const Text(
+                        'Version unavailable',
+                        style: TextStyle(color: Colors.red, fontSize: 12),
+                      );
+                    }
 
-                  if (!snapshot.hasData) {
-                    return const Text(
-                      'Loading version...',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
-                    );
-                  }
+                    if (!snapshot.hasData) {
+                      return const Text(
+                        'Loading version...',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      );
+                    }
 
-                  final packageInfo = snapshot.data!;
-                  return Text(
-                    'Version ${packageInfo.version}+${packageInfo.buildNumber}',
-                    style: const TextStyle(color: Colors.black, fontSize: 12),
-                  );
-                },
+                    final packageInfo = snapshot.data!;
+                    return Text(
+                      'Version ${packageInfo.version}+${packageInfo.buildNumber}',
+                      style: const TextStyle(color: Colors.black, fontSize: 12),
+                    );
+                  },
+                ),
               ),
-            ),
 
             // Navigation Items
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.symmetric(horizontal: collapsed ? 8 : 16),
                 children: [
                   _buildNavItem(
                     icon: Icons.dashboard_outlined,
@@ -126,18 +138,26 @@ class Sidebar extends ConsumerWidget {
 
             // Logout Button
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text(
-                  'Log Out',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                onTap: () => _handleLogout(context, ref),
-              ),
+              padding: EdgeInsets.all(collapsed ? 8 : 16),
+              child: collapsed
+                  ? Tooltip(
+                      message: 'Log Out',
+                      child: IconButton(
+                        icon: const Icon(Icons.logout, color: Colors.red),
+                        onPressed: () => _handleLogout(context, ref),
+                      ),
+                    )
+                  : ListTile(
+                      leading: const Icon(Icons.logout, color: Colors.red),
+                      title: const Text(
+                        'Log Out',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      onTap: () => _handleLogout(context, ref),
+                    ),
             ),
           ],
         ),
@@ -152,6 +172,24 @@ class Sidebar extends ConsumerWidget {
     int badgeCount = 0,
   }) {
     final isSelected = selectedItem == item;
+
+    if (collapsed) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        child: Tooltip(
+          message: title,
+          child: IconButton(
+            isSelected: isSelected,
+            icon: Badge(
+              isLabelVisible: badgeCount > 0,
+              label: Text(badgeCount > 9 ? '9+' : '$badgeCount'),
+              child: Icon(icon),
+            ),
+            onPressed: () => onItemSelected(item),
+          ),
+        ),
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),

@@ -10,11 +10,15 @@ import '../../../order/domain/entities/user_entities.dart';
 class DashboardHeader extends ConsumerWidget {
   final String title;
   final List<String> breadcrumbs;
+  final VoidCallback onMenuPressed;
+  final bool isMobile;
 
   const DashboardHeader({
     super.key,
     required this.title,
     required this.breadcrumbs,
+    required this.onMenuPressed,
+    this.isMobile = false,
   });
 
   @override
@@ -31,7 +35,7 @@ class DashboardHeader extends ConsumerWidget {
         : roleLabel.substring(0, 2).toUpperCase();
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 12 : 24),
       decoration: const BoxDecoration(
         // color: AppTheme.backgroundColor,
         border: Border(
@@ -40,49 +44,61 @@ class DashboardHeader extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          IconButton(
+            tooltip: 'Menu',
+            icon: const Icon(Icons.menu),
+            onPressed: onMenuPressed,
+          ),
+          SizedBox(width: isMobile ? 4 : 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 28,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: isMobile ? 20 : 28,
                     fontWeight: FontWeight.bold,
                     // color: AppTheme.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: breadcrumbs.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final breadcrumb = entry.value;
-                    final isLast = index == breadcrumbs.length - 1;
+                if (!isMobile) ...[
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: breadcrumbs.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final breadcrumb = entry.value;
+                        final isLast = index == breadcrumbs.length - 1;
 
-                    return Row(
-                      children: [
-                        Text(
-                          breadcrumb,
-                          style: TextStyle(
-                            // color: isLast ? AppTheme.textPrimary : AppTheme.textSecondary,
-                            fontWeight: isLast
-                                ? FontWeight.w500
-                                : FontWeight.normal,
-                          ),
-                        ),
-                        if (!isLast) ...[
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.chevron_right,
-                            size: 16,
-                            // color: AppTheme.textSecondary,
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                      ],
-                    );
-                  }).toList(),
-                ),
+                        return Row(
+                          children: [
+                            Text(
+                              breadcrumb,
+                              style: TextStyle(
+                                // color: isLast ? AppTheme.textPrimary : AppTheme.textSecondary,
+                                fontWeight: isLast
+                                    ? FontWeight.w500
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            if (!isLast) ...[
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                // color: AppTheme.textSecondary,
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -126,14 +142,16 @@ class DashboardHeader extends ConsumerWidget {
                 ],
               ),
               const SizedBox(width: 12),
-              Text(
-                roleLabel,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  // color: AppTheme.textPrimary,
+              if (!isMobile) ...[
+                Text(
+                  roleLabel,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    // color: AppTheme.textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
+              ],
               CircleAvatar(
                 radius: 20,
                 // backgroundColor: AppColors.primaryLaurel,

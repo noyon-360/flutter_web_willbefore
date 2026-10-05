@@ -5,10 +5,22 @@ import '../../../../models/dashboard_models.dart';
 import '../widgets/sidebar.dart';
 import '../widgets/dashboard_header.dart';
 
-class DashboardLayout extends StatelessWidget {
+class DashboardLayout extends StatefulWidget {
   final Widget child;
 
   const DashboardLayout({super.key, required this.child});
+
+  @override
+  State<DashboardLayout> createState() => _DashboardLayoutState();
+}
+
+class _DashboardLayoutState extends State<DashboardLayout> {
+  static const double _mobileBreakpoint = 700;
+  static const double _desktopBreakpoint = 1100;
+
+  /// Manual sidebar choice; null means follow the screen width.
+  bool? _collapsedOverride;
+  _ScreenSize? _lastSize;
 
   NavigationItem _getCurrentNavigationItem(String location) {
     if (location.startsWith(RouteEndpoint.dashboard)) {
@@ -107,6 +119,12 @@ class DashboardLayout extends StatelessWidget {
     }
   }
 
+  _ScreenSize _sizeFor(double width) {
+    if (width < _mobileBreakpoint) return _ScreenSize.mobile;
+    if (width < _desktopBreakpoint) return _ScreenSize.medium;
+    return _ScreenSize.large;
+  }
+
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
@@ -114,18 +132,54 @@ class DashboardLayout extends StatelessWidget {
     final pageTitle = _getPageTitle(location);
     final breadcrumbs = _getBreadcrumbs(location);
 
+    final size = _sizeFor(MediaQuery.sizeOf(context).width);
+    // Reset the manual choice when the screen crosses a breakpoint.
+    if (_lastSize != size) {
+      _collapsedOverride = null;
+      _lastSize = size;
+    }
+    final isMobile = size == _ScreenSize.mobile;
+    final collapsed = _collapsedOverride ?? size == _ScreenSize.medium;
+
     return Scaffold(
+      drawer: isMobile
+          ? Drawer(
+              child: Sidebar(
+                selectedItem: currentItem,
+                onItemSelected: (item) {
+                  Navigator.of(context).pop();
+                  _onNavigationItemSelected(context, item);
+                },
+              ),
+            )
+          : null,
       body: Row(
         children: [
-          Sidebar(
-            selectedItem: currentItem,
-            onItemSelected: (item) => _onNavigationItemSelected(context, item),
-          ),
+          if (!isMobile)
+            Sidebar(
+              selectedItem: currentItem,
+              collapsed: collapsed,
+              onItemSelected: (item) =>
+                  _onNavigationItemSelected(context, item),
+            ),
           Expanded(
             child: Column(
               children: [
-                DashboardHeader(title: pageTitle, breadcrumbs: breadcrumbs),
-                Expanded(child: child),
+                Builder(
+                  builder: (context) => DashboardHeader(
+                    title: pageTitle,
+                    breadcrumbs: breadcrumbs,
+                    isMobile: isMobile,
+                    onMenuPressed: () {
+                      if (isMobile) {
+                        Scaffold.of(context).openDrawer();
+                      } else {
+                        setState(() => _collapsedOverride = !collapsed);
+                      }
+                    },
+                  ),
+                ),
+                Expanded(child: widget.child),
               ],
             ),
           ),
@@ -134,3 +188,5 @@ class DashboardLayout extends StatelessWidget {
     );
   }
 }
+
+enum _ScreenSize { mobile, medium, large }
