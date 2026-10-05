@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutx_core/flutx_core.dart';
@@ -24,6 +26,10 @@ class AllUserProfileScreen extends ConsumerStatefulWidget {
 
 class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _horizontalController = ScrollController();
+
+  /// Below this width the table scrolls sideways instead of squeezing.
+  static const double _minTableWidth = 900;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -37,6 +43,7 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _horizontalController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -133,405 +140,452 @@ class _AllUserProfileScreenState extends ConsumerState<AllUserProfileScreen> {
       });
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 32, vertical: 23),
-            decoration: BoxDecoration(
-              color: Color(0xFFE8E8E8),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  isSuperAdmin ? 'Admins & Users' : 'User Profile',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textAppBlack,
-                  ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 600;
+        return Padding(
+          padding: EdgeInsets.all(narrow ? 12 : 24),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  horizontal: narrow ? 16 : 32,
+                  vertical: narrow ? 16 : 23,
                 ),
-
-                Container(
-                  width: 259,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLaurel,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Total User',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.bgColor,
-                          fontSize: 16,
-                        ),
+                decoration: BoxDecoration(
+                  color: Color(0xFFE8E8E8),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 16,
+                  runSpacing: 12,
+                  children: [
+                    Text(
+                      isSuperAdmin ? 'Admins & Users' : 'User Profile',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textAppBlack,
                       ),
-                      Row(
+                    ),
+
+                    Container(
+                      width: 259,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLaurel,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            height: 10,
-                            width: 10,
-                            decoration: BoxDecoration(
-                              color: AppColors.successGreen,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          Gap.w4,
                           Text(
-                            '${filteredUsers.length}',
+                            'Total User',
                             style: const TextStyle(
                               fontWeight: FontWeight.w500,
                               color: AppColors.bgColor,
                               fontSize: 16,
                             ),
                           ),
+                          Row(
+                            children: [
+                              Container(
+                                height: 10,
+                                width: 10,
+                                decoration: BoxDecoration(
+                                  color: AppColors.successGreen,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              Gap.w4,
+                              Text(
+                                '${filteredUsers.length}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.bgColor,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Search + Add
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      onSubmitted: (value) =>
+                          ref.read(userProvider.notifier).search(value.trim()),
+                      decoration: InputDecoration(
+                        hintText: 'Search users by email...',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _searchController.text.isEmpty
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  ref.read(userProvider.notifier).search('');
+                                },
+                              ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Gap.w16,
+                  ElevatedButton.icon(
+                    onPressed: () =>
+                        _showCreateUserDialog(context, isSuperAdmin),
+                    icon: const Icon(Icons.add, size: 20),
+                    label: Text(isSuperAdmin ? 'Add Admin/User' : 'Add User'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryLaurel,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _UserFilterBar(
+                query: userState.query,
+                isSuperAdmin: isSuperAdmin,
+              ),
+              if (query.hasClientFilters && userState.hasMore)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Status, email, phone, pending-order and cart filters only '
+                      'apply to users loaded so far.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondaryHintColor,
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+
+              // Users Table
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
+                  child: LayoutBuilder(
+                    builder: (context, tableConstraints) => Scrollbar(
+                      controller: _horizontalController,
+                      child: SingleChildScrollView(
+                        controller: _horizontalController,
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: max(tableConstraints.maxWidth, _minTableWidth),
+                          child: Column(
+                            children: [
+                              // Table Header
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 16,
+                                ),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(12),
+                                    topRight: Radius.circular(12),
+                                  ),
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: AppColors.borderColor,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Name',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppColors.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Email',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppColors.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Phone',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppColors.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        'Role',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppColors.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        'Created At',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppColors.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        'Pending Orders',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppColors.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        'In Cart',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppColors.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
 
-          // Search + Add
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  onSubmitted: (value) =>
-                      ref.read(userProvider.notifier).search(value.trim()),
-                  decoration: InputDecoration(
-                    hintText: 'Search users by email...',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchController.text.isEmpty
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              ref.read(userProvider.notifier).search('');
-                            },
+                              // Table Body
+                              if (userState.isLoading ||
+                                  (filteredUsers.isEmpty && isResolving))
+                                const Expanded(
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      color: AppColors.primaryLaurel,
+                                    ),
+                                  ),
+                                )
+                              else if (filteredUsers.isEmpty)
+                                Expanded(
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.person_outline,
+                                          size: 64,
+                                          color:
+                                              AppColors.textSecondaryHintColor,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          userState.errorMessage.isEmpty
+                                              ? 'No users found'
+                                              : userState.errorMessage,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            color: AppColors
+                                                .textSecondaryHintColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else
+                                Expanded(
+                                  child: ListView.builder(
+                                    controller: _scrollController,
+                                    itemCount:
+                                        filteredUsers.length +
+                                        (userState.isLoadingMore ? 1 : 0),
+                                    itemBuilder: (context, index) {
+                                      if (index >= filteredUsers.length) {
+                                        return const Padding(
+                                          padding: EdgeInsets.all(16),
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              color: AppColors.primaryLaurel,
+                                            ),
+                                          ),
+                                        );
+                                      }
+
+                                      final user = filteredUsers[index];
+
+                                      return Material(
+                                        color: index.isEven
+                                            ? const Color(0xFFF3F3F3)
+                                            : Colors.white,
+                                        child: InkWell(
+                                          onTap: () =>
+                                              _openUserDetail(context, user),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 20,
+                                              vertical: 14,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                // Name
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: Text(
+                                                    user.displayNameOrEmail,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 13,
+                                                      color: AppColors
+                                                          .textAppBlack,
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Email
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: Text(
+                                                    user.email,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      color: AppColors
+                                                          .textSecondaryColor,
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Phone
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: Text(
+                                                    user.phoneNumber ?? '-',
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      color: AppColors
+                                                          .textSecondaryColor,
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Role
+                                                Expanded(
+                                                  child: _RoleBadge(
+                                                    role: user.role,
+                                                  ),
+                                                ),
+                                                // Created At
+                                                Expanded(
+                                                  child: Text(
+                                                    user.createdAt != null
+                                                        ? DateFormat(
+                                                            'dd MMM yyyy\nhh:mm a',
+                                                          ).format(
+                                                            user.createdAt,
+                                                          )
+                                                        : '-',
+                                                    style: const TextStyle(
+                                                      color: AppColors
+                                                          .textSecondaryColor,
+                                                      fontSize: 12,
+                                                      height: 1.3,
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Pending Orders
+                                                Expanded(
+                                                  child: _PendingOrdersCount(
+                                                    userId: user.id,
+                                                  ),
+                                                ),
+                                                // In Cart
+                                                Expanded(
+                                                  child: _CartItemsCount(
+                                                    userId: user.id,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                            ],
                           ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                ),
-              ),
-              Gap.w16,
-              ElevatedButton.icon(
-                onPressed: () => _showCreateUserDialog(context, isSuperAdmin),
-                icon: const Icon(Icons.add, size: 20),
-                label: Text(isSuperAdmin ? 'Add Admin/User' : 'Add User'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryLaurel,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          _UserFilterBar(query: userState.query, isSuperAdmin: isSuperAdmin),
-          if (query.hasClientFilters && userState.hasMore)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Status, email, phone, pending-order and cart filters only '
-                  'apply to users loaded so far.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondaryHintColor,
-                  ),
-                ),
-              ),
-            ),
-          const SizedBox(height: 16),
-
-          // Users Table
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // Table Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                      border: Border(
-                        bottom: BorderSide(color: AppColors.borderColor),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Name',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppColors.textSecondaryColor,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Email',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppColors.textSecondaryColor,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Phone',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppColors.textSecondaryColor,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Role',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppColors.textSecondaryColor,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Created At',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppColors.textSecondaryColor,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Pending Orders',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppColors.textSecondaryColor,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'In Cart',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppColors.textSecondaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Table Body
-                  if (userState.isLoading ||
-                      (filteredUsers.isEmpty && isResolving))
-                    const Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryLaurel,
-                        ),
-                      ),
-                    )
-                  else if (filteredUsers.isEmpty)
-                    Expanded(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.person_outline,
-                              size: 64,
-                              color: AppColors.textSecondaryHintColor,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              userState.errorMessage.isEmpty
-                                  ? 'No users found'
-                                  : userState.errorMessage,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                color: AppColors.textSecondaryHintColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        itemCount:
-                            filteredUsers.length +
-                            (userState.isLoadingMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= filteredUsers.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: AppColors.primaryLaurel,
-                                ),
-                              ),
-                            );
-                          }
-
-                          final user = filteredUsers[index];
-
-                          return Material(
-                            color: index.isEven
-                                ? const Color(0xFFF3F3F3)
-                                : Colors.white,
-                            child: InkWell(
-                              onTap: () => _openUserDetail(context, user),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 14,
-                                ),
-                                child: Row(
-                                  children: [
-                                    // Name
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        user.displayNameOrEmail,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13,
-                                          color: AppColors.textAppBlack,
-                                        ),
-                                      ),
-                                    ),
-                                    // Email
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        user.email,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: AppColors.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    // Phone
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        user.phoneNumber ?? '-',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: AppColors.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    // Role
-                                    Expanded(
-                                      child: _RoleBadge(role: user.role),
-                                    ),
-                                    // Created At
-                                    Expanded(
-                                      child: Text(
-                                        user.createdAt != null
-                                            ? DateFormat(
-                                                'dd MMM yyyy\nhh:mm a',
-                                              ).format(user.createdAt)
-                                            : '-',
-                                        style: const TextStyle(
-                                          color: AppColors.textSecondaryColor,
-                                          fontSize: 12,
-                                          height: 1.3,
-                                        ),
-                                      ),
-                                    ),
-                                    // Pending Orders
-                                    Expanded(
-                                      child: _PendingOrdersCount(
-                                        userId: user.id,
-                                      ),
-                                    ),
-                                    // In Cart
-                                    Expanded(
-                                      child: _CartItemsCount(userId: user.id),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
