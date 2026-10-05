@@ -41,7 +41,7 @@ class NotificationService {
       FirebaseMessaging.onBackgroundMessage(_backgroundHandler);
     }
 
-    await _requestPermissions();
+   final granted = await _requestPermissions();
 
     if (!kIsWeb) {
       await _createNotificationChannel();
@@ -50,20 +50,21 @@ class NotificationService {
     await _initializeLocalNotifications();
 
     // Safe token handling for iOS + Android + Web
-    _startFcmTokenSync();
+    if (granted) _startFcmTokenSync();
   }
 
   // ──────────────────────────────────────────────────────────────
   // 1. Permission
   // ──────────────────────────────────────────────────────────────
-  Future<void> _requestPermissions() async {
-    NotificationSettings settings = await _messaging.requestPermission(
+  Future<bool> _requestPermissions() async {
+    final settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
-      provisional: false,
     );
     DPrint.log("Permission status: ${settings.authorizationStatus}");
+    return settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
   }
 
   // ──────────────────────────────────────────────────────────────
