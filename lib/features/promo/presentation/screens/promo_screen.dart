@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +17,10 @@ class PromosScreen extends ConsumerStatefulWidget {
 
 class _PromosScreenState extends ConsumerState<PromosScreen> {
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _horizontalController = ScrollController();
+
+  /// Below this width the table scrolls sideways instead of squeezing.
+  static const double _minTableWidth = 700;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -28,6 +34,7 @@ class _PromosScreenState extends ConsumerState<PromosScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _horizontalController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -121,294 +128,316 @@ class _PromosScreenState extends ConsumerState<PromosScreen> {
                   ),
                 ],
               ),
-              child: Column(
-                children: [
-                  // Table Header
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: const Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            'Promo Name',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Under of products',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Under of products',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 100,
-                          child: Text(
-                            'Action',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Table Body
-                  if (promosState.isLoadingAdmin)
-                    const Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryLaurel,
-                        ),
-                      ),
-                    )
-                  else if (promos.isEmpty)
-                    const Expanded(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.local_offer_outlined,
-                              size: 64,
-                              color: AppColors.textSecondaryHintColor,
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'No promos found',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: AppColors.textSecondaryHintColor,
+              child: LayoutBuilder(
+                builder: (context, constraints) => Scrollbar(
+                  controller: _horizontalController,
+                  child: SingleChildScrollView(
+                    controller: _horizontalController,
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: max(constraints.maxWidth, _minTableWidth),
+                      child: Column(
+                        children: [
+                          // Table Header
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(12),
+                                topRight: Radius.circular(12),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        itemCount:
-                            promos.length +
-                            (promosState.isLoadingMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= promos.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16),
+                            child: const Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    'Promo Name',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    'Code',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    'Usage',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 150,
+                                  child: Text(
+                                    'Action',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Table Body
+                          if (promosState.isLoadingAdmin)
+                            const Expanded(
                               child: Center(
                                 child: CircularProgressIndicator(
                                   color: AppColors.primaryLaurel,
                                 ),
                               ),
-                            );
-                          }
-
-                          final promo = promos[index];
-                          final isLast = index == promos.length - 1;
-
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: isLast
-                                      ? Colors.transparent
-                                      : AppColors.borderColor,
+                            )
+                          else if (promos.isEmpty)
+                            const Expanded(
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.local_offer_outlined,
+                                      size: 64,
+                                      color: AppColors.textSecondaryHintColor,
+                                    ),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'No promos found',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: AppColors.textSecondaryHintColor,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                // Promo Name with Image
-                                Expanded(
-                                  flex: 3,
-                                  child: Row(
-                                    children: [
-                                      // Promo Image
-                                      Container(
-                                        width: 80,
-                                        height: 60,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          color: AppColors.bgColor,
-                                        ),
-                                        child: promo.imageUrl != null
-                                            ? ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: Image.network(
-                                                  promo.imageUrl!,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder:
-                                                      (
-                                                        context,
-                                                        error,
-                                                        stackTrace,
-                                                      ) {
-                                                        return const Icon(
-                                                          Icons.local_offer,
-                                                          color: AppColors
-                                                              .primaryLaurel,
-                                                          size: 24,
-                                                        );
-                                                      },
-                                                ),
-                                              )
-                                            : const Icon(
-                                                Icons.local_offer,
-                                                color: AppColors.primaryLaurel,
-                                                size: 24,
-                                              ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      // Promo Details
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              promo.title,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w500,
-                                                color: AppColors.textAppBlack,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Up to ${promo.discountPercentage.toInt()}% off',
-                                              style: const TextStyle(
-                                                color: AppColors
-                                                    .textSecondaryColor,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Code
-                                Expanded(
-                                  flex: 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.bgColor,
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: AppColors.borderColor,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      promo.code,
-                                      style: const TextStyle(
-                                        fontFamily: 'monospace',
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.textAppBlack,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                // Usage Count
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    promo.usageLimit > 0
-                                        ? '${promo.usedCount}/${promo.usageLimit}'
-                                        : '${promo.usedCount}',
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondaryColor,
-                                    ),
-                                  ),
-                                ),
-
-                                // Actions
-                                SizedBox(
-                                  width: 100,
-                                  child: Wrap(
-                                    spacing: 0,
-                                    runSpacing: 0,
-                                    children: [
-                                      IconButton(
-                                        onPressed: () => context.go(
-                                          '${RouteEndpoint.promos}/view/${promo.id}',
-                                        ),
-                                        icon: const Icon(
-                                          Icons.visibility_outlined,
-                                          size: 18,
-                                          color: AppColors.textSecondaryColor,
-                                        ),
-                                      ),
-                                      IconButton(
-                                        onPressed: () => context.go(
-                                          '${RouteEndpoint.promos}/edit/${promo.id}',
-                                        ),
-                                        icon: const Icon(
-                                          Icons.edit_outlined,
-                                          size: 18,
+                            )
+                          else
+                            Expanded(
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                itemCount:
+                                    promos.length +
+                                    (promosState.isLoadingMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index >= promos.length) {
+                                    return const Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: Center(
+                                        child: CircularProgressIndicator(
                                           color: AppColors.primaryLaurel,
                                         ),
                                       ),
-                                      IconButton(
-                                        onPressed: promosState.isDeleting
-                                            ? null
-                                            : () => _showDeleteDialog(
-                                                context,
-                                                promo.id,
-                                              ),
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          size: 18,
-                                          color: Colors.red,
+                                    );
+                                  }
+
+                                  final promo = promos[index];
+                                  final isLast = index == promos.length - 1;
+
+                                  return Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: isLast
+                                              ? Colors.transparent
+                                              : AppColors.borderColor,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        // Promo Name with Image
+                                        Expanded(
+                                          flex: 3,
+                                          child: Row(
+                                            children: [
+                                              // Promo Image
+                                              Container(
+                                                width: 80,
+                                                height: 60,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  color: AppColors.bgColor,
+                                                ),
+                                                child: promo.imageUrl != null
+                                                    ? ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                        child: Image.network(
+                                                          promo.imageUrl!,
+                                                          fit: BoxFit.cover,
+                                                          errorBuilder:
+                                                              (
+                                                                context,
+                                                                error,
+                                                                stackTrace,
+                                                              ) {
+                                                                return const Icon(
+                                                                  Icons
+                                                                      .local_offer,
+                                                                  color: AppColors
+                                                                      .primaryLaurel,
+                                                                  size: 24,
+                                                                );
+                                                              },
+                                                        ),
+                                                      )
+                                                    : const Icon(
+                                                        Icons.local_offer,
+                                                        color: AppColors
+                                                            .primaryLaurel,
+                                                        size: 24,
+                                                      ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              // Promo Details
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      promo.title,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color: AppColors
+                                                            .textAppBlack,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      'Up to ${promo.discountPercentage.toInt()}% off',
+                                                      style: const TextStyle(
+                                                        color: AppColors
+                                                            .textSecondaryColor,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        // Code
+                                        Expanded(
+                                          flex: 2,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.bgColor,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: AppColors.borderColor,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              promo.code,
+                                              style: const TextStyle(
+                                                fontFamily: 'monospace',
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.textAppBlack,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+
+                                        // Usage Count
+                                        Expanded(
+                                          flex: 2,
+                                          child: Text(
+                                            promo.usageLimit > 0
+                                                ? '${promo.usedCount}/${promo.usageLimit}'
+                                                : '${promo.usedCount}',
+                                            style: const TextStyle(
+                                              color:
+                                                  AppColors.textSecondaryColor,
+                                            ),
+                                          ),
+                                        ),
+
+                                        // Actions
+                                        SizedBox(
+                                          width: 150,
+                                          child: Wrap(
+                                            spacing: 0,
+                                            runSpacing: 0,
+                                            children: [
+                                              IconButton(
+                                                onPressed: () => context.go(
+                                                  '${RouteEndpoint.promos}/view/${promo.id}',
+                                                ),
+                                                icon: const Icon(
+                                                  Icons.visibility_outlined,
+                                                  size: 18,
+                                                  color: AppColors
+                                                      .textSecondaryColor,
+                                                ),
+                                              ),
+                                              IconButton(
+                                                onPressed: () => context.go(
+                                                  '${RouteEndpoint.promos}/edit/${promo.id}',
+                                                ),
+                                                icon: const Icon(
+                                                  Icons.edit_outlined,
+                                                  size: 18,
+                                                  color:
+                                                      AppColors.primaryLaurel,
+                                                ),
+                                              ),
+                                              IconButton(
+                                                onPressed:
+                                                    promosState.isDeleting
+                                                    ? null
+                                                    : () => _showDeleteDialog(
+                                                        context,
+                                                        promo.id,
+                                                      ),
+                                                icon: const Icon(
+                                                  Icons.delete_outline,
+                                                  size: 18,
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
-                          );
-                        },
+                        ],
                       ),
                     ),
-                ],
+                  ),
+                ),
               ),
             ),
           ),

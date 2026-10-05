@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/routes/route_endpoint.dart';
+import '../../../../core/theme/app_input_decoration.dart';
 import '../../domain/requests/create_promo_request.dart';
 import '../providers/promos_provider.dart';
 
@@ -103,7 +104,8 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
       title: _titleController.text.trim(),
       code: _codeController.text.trim().toUpperCase(),
       description: _descriptionController.text.trim(),
-      discountPercentage: double.tryParse(_discountPercentageController.text) ?? 0,
+      discountPercentage:
+          double.tryParse(_discountPercentageController.text) ?? 0,
       discountAmount: _discountAmountController.text.isNotEmpty
           ? double.tryParse(_discountAmountController.text)
           : null,
@@ -118,7 +120,9 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
       usageLimit: int.tryParse(_usageLimitController.text) ?? 0,
     );
 
-    final success = await ref.read(promosProvider.notifier).createPromo(request);
+    final success = await ref
+        .read(promosProvider.notifier)
+        .createPromo(request);
 
     if (success && mounted) {
       context.go(RouteEndpoint.promos);
@@ -131,10 +135,7 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
     } else if (mounted) {
       final errorMessage = ref.read(promosProvider).errorMessage;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
       );
     }
   }
@@ -143,45 +144,75 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
   Widget build(BuildContext context) {
     final promosState = ref.watch(promosProvider);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Form(
-        key: _formKey,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Left Column
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildPromoTitleSection(),
-                  const SizedBox(height: 24),
-                  _buildPromoCodeSection(),
-                  const SizedBox(height: 24),
-                  _buildDescriptionSection(),
-                  const SizedBox(height: 24),
-                  _buildDiscountSection(),
-                  const SizedBox(height: 24),
-                  _buildDateSection(),
-                  const SizedBox(height: 24),
-                  _buildSettingsSection(),
-                  const SizedBox(height: 32),
-                  _buildActionButtons(promosState.isCreating),
-                ],
-              ),
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final twoColumns = constraints.maxWidth >= 1000;
+        final narrow = constraints.maxWidth < 600;
 
-            const SizedBox(width: 32),
+        final fields = [
+          _buildPromoTitleSection(),
+          const SizedBox(height: 24),
+          _buildPromoCodeSection(),
+          const SizedBox(height: 24),
+          _buildDescriptionSection(),
+          const SizedBox(height: 24),
+          _buildDiscountSection(narrow),
+          const SizedBox(height: 24),
+          _buildDateSection(narrow),
+          const SizedBox(height: 24),
+          _buildSettingsSection(),
+          const SizedBox(height: 32),
+        ];
+        final buttons = _buildActionButtons(promosState.isCreating);
 
-            // Right Column
-            Expanded(
-              child: _buildImageSection(),
-            ),
-          ],
-        ),
-      ),
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(narrow ? 12 : 24),
+          child: Form(
+            key: _formKey,
+            child: twoColumns
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left Column
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [...fields, buttons],
+                        ),
+                      ),
+                      const SizedBox(width: 32),
+                      // Right Column
+                      Expanded(child: _buildImageSection(narrow)),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ...fields,
+                      _buildImageSection(narrow),
+                      const SizedBox(height: 32),
+                      buttons,
+                    ],
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Two fields side by side, or stacked when [narrow].
+  Widget _pair(bool narrow, Widget first, Widget second) {
+    if (narrow) {
+      return Column(children: [first, const SizedBox(height: 16), second]);
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: first),
+        const SizedBox(width: 16),
+        Expanded(child: second),
+      ],
     );
   }
 
@@ -200,9 +231,7 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
         const SizedBox(height: 12),
         TextFormField(
           controller: _titleController,
-          decoration: const InputDecoration(
-            hintText: 'Enter promo title...',
-          ),
+          decoration: appInputDecoration(hintText: 'Enter promo title...'),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'Please enter a promo title';
@@ -229,9 +258,7 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
         const SizedBox(height: 12),
         TextFormField(
           controller: _codeController,
-          decoration: const InputDecoration(
-            hintText: 'Enter promo code...',
-          ),
+          decoration: appInputDecoration(hintText: 'Enter promo code...'),
           onChanged: (value) {
             _codeController.value = _codeController.value.copyWith(
               text: value.toUpperCase(),
@@ -268,7 +295,7 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
         TextFormField(
           controller: _descriptionController,
           maxLines: 3,
-          decoration: const InputDecoration(
+          decoration: appInputDecoration(
             hintText: 'Enter promo description...',
           ),
           validator: (value) {
@@ -282,7 +309,7 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
     );
   }
 
-  Widget _buildDiscountSection() {
+  Widget _buildDiscountSection(bool narrow) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -295,45 +322,39 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _discountPercentageController,
-                decoration: const InputDecoration(
-                  labelText: 'Discount Percentage (%)',
-                  hintText: '0',
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Required';
-                  }
-                  final percentage = double.tryParse(value);
-                  if (percentage == null || percentage < 0 || percentage > 100) {
-                    return 'Enter valid percentage (0-100)';
-                  }
-                  return null;
-                },
-              ),
+        _pair(
+          narrow,
+          TextFormField(
+            controller: _discountPercentageController,
+            decoration: appInputDecoration(
+              labelText: 'Discount Percentage (%)',
+              hintText: '0',
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: TextFormField(
-                controller: _discountAmountController,
-                decoration: const InputDecoration(
-                  labelText: 'Fixed Discount Amount',
-                  hintText: '0.00',
-                ),
-                keyboardType: TextInputType.number,
-              ),
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Required';
+              }
+              final percentage = double.tryParse(value);
+              if (percentage == null || percentage < 0 || percentage > 100) {
+                return 'Enter valid percentage (0-100)';
+              }
+              return null;
+            },
+          ),
+          TextFormField(
+            controller: _discountAmountController,
+            decoration: appInputDecoration(
+              labelText: 'Fixed Discount Amount',
+              hintText: '0.00',
             ),
-          ],
+            keyboardType: TextInputType.number,
+          ),
         ),
         const SizedBox(height: 16),
         TextFormField(
           controller: _minimumOrderController,
-          decoration: const InputDecoration(
+          decoration: appInputDecoration(
             labelText: 'Minimum Order Amount',
             hintText: '0.00',
           ),
@@ -343,80 +364,76 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
     );
   }
 
-  Widget _buildDateSection() {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Start Date',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textAppBlack,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _startDateController,
-                readOnly: true,
-                decoration: InputDecoration(
-                  hintText: 'Enter start date...',
-                  suffixIcon: IconButton(
-                    onPressed: () => _selectDate(context, true),
-                    icon: const Icon(Icons.calendar_today),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please select start date';
-                  }
-                  return null;
-                },
-              ),
-            ],
+  Widget _buildDateSection(bool narrow) {
+    return _pair(
+      narrow,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Start Date',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textAppBlack,
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'End Date',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textAppBlack,
-                ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _startDateController,
+            readOnly: true,
+            decoration: appInputDecoration(
+              hintText: 'Enter start date...',
+              suffixIcon: IconButton(
+                onPressed: () => _selectDate(context, true),
+                icon: const Icon(Icons.calendar_today),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _endDateController,
-                readOnly: true,
-                decoration: InputDecoration(
-                  hintText: 'Enter end date...',
-                  suffixIcon: IconButton(
-                    onPressed: () => _selectDate(context, false),
-                    icon: const Icon(Icons.calendar_today),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please select end date';
-                  }
-                  if (_startDate != null && _endDate != null && _endDate!.isBefore(_startDate!)) {
-                    return 'End date must be after start date';
-                  }
-                  return null;
-                },
-              ),
-            ],
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please select start date';
+              }
+              return null;
+            },
           ),
-        ),
-      ],
+        ],
+      ),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'End Date',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textAppBlack,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _endDateController,
+            readOnly: true,
+            decoration: appInputDecoration(
+              hintText: 'Enter end date...',
+              suffixIcon: IconButton(
+                onPressed: () => _selectDate(context, false),
+                icon: const Icon(Icons.calendar_today),
+              ),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please select end date';
+              }
+              if (_startDate != null &&
+                  _endDate != null &&
+                  _endDate!.isBefore(_startDate!)) {
+                return 'End date must be after start date';
+              }
+              return null;
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -435,7 +452,7 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
         const SizedBox(height: 12),
         TextFormField(
           controller: _usageLimitController,
-          decoration: const InputDecoration(
+          decoration: appInputDecoration(
             labelText: 'Usage Limit (0 for unlimited)',
             hintText: '0',
           ),
@@ -462,7 +479,7 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
     );
   }
 
-  Widget _buildImageSection() {
+  Widget _buildImageSection(bool narrow) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -478,7 +495,7 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
         GestureDetector(
           onTap: _pickImage,
           child: Container(
-            height: 300,
+            height: narrow ? 200 : 300,
             width: double.infinity,
             decoration: BoxDecoration(
               border: Border.all(
@@ -556,7 +573,9 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: isLoading ? null : () => context.go(RouteEndpoint.promos),
+            onPressed: isLoading
+                ? null
+                : () => context.go(RouteEndpoint.promos),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               side: const BorderSide(color: AppColors.borderColor),
@@ -584,10 +603,7 @@ class _AddPromoScreenState extends ConsumerState<AddPromoScreen> {
                       color: Colors.white,
                     ),
                   )
-                : const Text(
-                    'Save',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                : const Text('Save', style: TextStyle(color: Colors.white)),
           ),
         ),
       ],
