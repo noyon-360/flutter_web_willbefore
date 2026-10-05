@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutx_core/flutx_core.dart';
@@ -19,6 +21,10 @@ class ProductListScreen extends ConsumerStatefulWidget {
 
 class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _horizontalController = ScrollController();
+
+  /// Below this width the table scrolls sideways instead of squeezing.
+  static const double _minTableWidth = 1200;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -32,6 +38,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _horizontalController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -138,9 +145,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                     ],
                     onChanged: (value) {
                       if (value == null) return;
-                      ref
-                          .read(productsProvider.notifier)
-                          .setSortByScore(value);
+                      ref.read(productsProvider.notifier).setSortByScore(value);
                     },
                   ),
                 ),
@@ -164,463 +169,501 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                   ),
                 ],
               ),
-              child: Column(
-                children: [
-                  // Table Header
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: const Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            'Product Name',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'ID',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Actual_Price',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Discount_Price',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Stocks',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Views',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Rating',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Date',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 140,
-                          child: Text(
-                            'Action',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textAppBlack,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Table Body
-                  if (productsState.isLoading)
-                    const Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryLaurel,
-                        ),
-                      ),
-                    )
-                  else if (products.isEmpty)
-                    const Expanded(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.inventory_outlined,
-                              size: 64,
-                              color: AppColors.textSecondaryHintColor,
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'No products found',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: AppColors.textSecondaryHintColor,
+              child: LayoutBuilder(
+                builder: (context, constraints) => Scrollbar(
+                  controller: _horizontalController,
+                  child: SingleChildScrollView(
+                    controller: _horizontalController,
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: max(constraints.maxWidth, _minTableWidth),
+                      child: Column(
+                        children: [
+                          // Table Header
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(12),
+                                topRight: Radius.circular(12),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        itemCount:
-                            products.length +
-                            (productsState.isLoadingMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= products.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16),
+                            child: const Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    'Product Name',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    'ID',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    'Actual_Price',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    'Discount_Price',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    'Stocks',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    'Views',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    'Rating',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    'Date',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 140,
+                                  child: Text(
+                                    'Action',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textAppBlack,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Table Body
+                          if (productsState.isLoading)
+                            const Expanded(
                               child: Center(
                                 child: CircularProgressIndicator(
                                   color: AppColors.primaryLaurel,
                                 ),
                               ),
-                            );
-                          }
-
-                          final product = products[index];
-                          final isLast = index == products.length - 1;
-
-                          DPrint.info("Products : ${product.colors}");
-
-                          return InkWell(
-                            onTap: () {
-                              context.go(
-                                '${RouteEndpoint.products}/view/${product.id}',
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: isLast
-                                        ? Colors.transparent
-                                        : AppColors.borderColor,
-                                  ),
+                            )
+                          else if (products.isEmpty)
+                            const Expanded(
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.inventory_outlined,
+                                      size: 64,
+                                      color: AppColors.textSecondaryHintColor,
+                                    ),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'No products found',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: AppColors.textSecondaryHintColor,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              child: Row(
-                                children: [
-                                  // Product Name with Image
-                                  Expanded(
-                                    flex: 3,
-                                    child: Row(
-                                      children: [
-                                        // Product Image
-                                        Container(
-                                          width: 60,
-                                          height: 60,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            color: AppColors.bgColor,
-                                          ),
-                                          child: product.imageUrls.isNotEmpty
-                                              ? ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  child: Image.network(
-                                                    product.imageUrls.first,
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder:
-                                                        (
-                                                          context,
-                                                          error,
-                                                          stackTrace,
-                                                        ) {
-                                                          return const Icon(
-                                                            Icons.inventory,
-                                                            color: AppColors
-                                                                .primaryLaurel,
-                                                            size: 24,
-                                                          );
-                                                        },
-                                                  ),
-                                                )
-                                              : const Icon(
-                                                  Icons.inventory,
-                                                  color:
-                                                      AppColors.primaryLaurel,
-                                                  size: 24,
-                                                ),
+                            )
+                          else
+                            Expanded(
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                itemCount:
+                                    products.length +
+                                    (productsState.isLoadingMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index >= products.length) {
+                                    return const Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          color: AppColors.primaryLaurel,
                                         ),
-                                        const SizedBox(width: 12),
-                                        // Product Name
-                                        Expanded(
-                                          child: Text(
-                                            product.title,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w500,
-                                              color: AppColors.textAppBlack,
-                                            ),
+                                      ),
+                                    );
+                                  }
+
+                                  final product = products[index];
+                                  final isLast = index == products.length - 1;
+
+                                  DPrint.info("Products : ${product.colors}");
+
+                                  return InkWell(
+                                    onTap: () {
+                                      context.go(
+                                        '${RouteEndpoint.products}/view/${product.id}',
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        border: Border(
+                                          bottom: BorderSide(
+                                            color: isLast
+                                                ? Colors.transparent
+                                                : AppColors.borderColor,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  // ID
-                                  Expanded(
-                                    child: Text(
-                                      product.id.substring(0, 8),
-                                      style: const TextStyle(
-                                        color: AppColors.textSecondaryColor,
                                       ),
-                                    ),
-                                  ),
-
-                                  // Actual Price
-                                  Expanded(
-                                    child: Text(
-                                      '\$${product.actualPrice.toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.textAppBlack,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Discount Price
-                                  Expanded(
-                                    child: Text(
-                                      product.discountPrice != null
-                                          ? '\$${product.discountPrice!.toStringAsFixed(2)}'
-                                          : '-',
-                                      style: const TextStyle(
-                                        color: AppColors.textSecondaryColor,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Stock
-                                  Expanded(
-                                    child: Text(
-                                      '${product.stock}',
-                                      style: TextStyle(
-                                        color: product.stock > 20
-                                            ? Colors.green
-                                            : product.stock > 5
-                                            ? Colors.orange
-                                            : Colors.red,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Views
-                                  Expanded(
-                                    child: Text(
-                                      '${product.viewCount}',
-                                      style: const TextStyle(
-                                        color: AppColors.textSecondaryColor,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Rating
-                                  Expanded(
-                                    child: product.ratingCount > 0
-                                        ? Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.star,
-                                                size: 14,
-                                                color: Colors.amber,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                '${product.averageRating.toStringAsFixed(1)} (${product.ratingCount})',
-                                                style: const TextStyle(
-                                                  color: AppColors
-                                                      .textSecondaryColor,
-                                                ),
-                                              ),
-                                            ],
-                                          )
-                                        : const Text(
-                                            '—',
-                                            style: TextStyle(
-                                              color: AppColors
-                                                  .textSecondaryColor,
-                                            ),
-                                          ),
-                                  ),
-
-                                  // Date
-                                  Expanded(
-                                    child: Text(
-                                      DateFormat(
-                                        'dd MMM yyyy hh:mm a',
-                                      ).format(product.createdAt),
-                                      style: const TextStyle(
-                                        color: AppColors.textSecondaryColor,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Actions
-                                  SizedBox(
-                                    width: 140,
-                                    child: Row(
-                                      children: [
-                                        IconButton(
-                                          onPressed: productsState.isUpdating
-                                              ? null
-                                              : () async {
-                                                  final request =
-                                                      UpdateProductRequest(
-                                                        id: product.id,
-                                                        title: product.title,
-                                                        description:
-                                                            product.description,
-                                                        actualPrice:
-                                                            product.actualPrice,
-                                                        discountPrice: product
-                                                            .discountPrice,
-                                                        stock: product.stock,
-                                                        categoryId:
-                                                            product.categoryId,
-                                                        promoId:
-                                                            product.promoId,
-                                                        sizes: product.sizes,
-                                                        colors: product.colors,
-                                                        colorCodes:
-                                                            product.colorCodes,
-                                                        newImages: [],
-                                                        existingImageUrls:
-                                                            product.imageUrls,
-                                                        isActive:
-                                                            !product.isActive,
-                                                        facilities:
-                                                            product.facilities,
-                                                      );
-
-                                                  final success = await ref
-                                                      .read(
-                                                        productsProvider
-                                                            .notifier,
-                                                      )
-                                                      .updateProduct(request);
-
-                                                  if (success && mounted) {
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(
-                                                          product.isActive
-                                                              ? 'Product hidden successfully!'
-                                                              : 'Product published successfully!',
+                                      child: Row(
+                                        children: [
+                                          // Product Name with Image
+                                          Expanded(
+                                            flex: 3,
+                                            child: Row(
+                                              children: [
+                                                // Product Image
+                                                Container(
+                                                  width: 60,
+                                                  height: 60,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
                                                         ),
-                                                        backgroundColor:
-                                                            AppColors
-                                                                .primaryLaurel,
-                                                      ),
-                                                    );
-                                                  }
-                                                },
-                                          icon: Icon(
-                                            product.isActive
-                                                ? Icons.visibility
-                                                : Icons.visibility_off,
-                                            size: 18,
-                                            color: product.isActive
-                                                ? Colors.green
-                                                : Colors.orange,
-                                          ),
-                                          tooltip: product.isActive
-                                              ? 'Hide Product'
-                                              : 'Publish Product',
-                                        ),
-                                        IconButton(
-                                          onPressed: () =>
-                                              confirmAndSendProductNotification(
-                                                context,
-                                                product,
-                                              ),
-                                          icon: const Icon(
-                                            Icons.notifications_active_outlined,
-                                            size: 18,
-                                            color: Colors.blueAccent,
-                                          ),
-                                          tooltip: 'Notify all users',
-                                        ),
-                                        // IconButton(
-                                        // onPressed: () => context.go(
-                                        //   '${RouteEndpoint.products}/edit/${product.id}',
-                                        // ),
-                                        //   icon: const Icon(
-                                        //     Icons.edit_outlined,
-                                        //     size: 18,
-                                        //     color: AppColors.primaryLaurel,
-                                        //   ),
-                                        // ),
-                                        IconButton(
-                                          onPressed: productsState.isDeleting
-                                              ? null
-                                              : () => _showDeleteDialog(
-                                                  context,
-                                                  product.id,
+                                                    color: AppColors.bgColor,
+                                                  ),
+                                                  child:
+                                                      product
+                                                          .imageUrls
+                                                          .isNotEmpty
+                                                      ? ClipRRect(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
+                                                          child: Image.network(
+                                                            product
+                                                                .imageUrls
+                                                                .first,
+                                                            fit: BoxFit.cover,
+                                                            errorBuilder:
+                                                                (
+                                                                  context,
+                                                                  error,
+                                                                  stackTrace,
+                                                                ) {
+                                                                  return const Icon(
+                                                                    Icons
+                                                                        .inventory,
+                                                                    color: AppColors
+                                                                        .primaryLaurel,
+                                                                    size: 24,
+                                                                  );
+                                                                },
+                                                          ),
+                                                        )
+                                                      : const Icon(
+                                                          Icons.inventory,
+                                                          color: AppColors
+                                                              .primaryLaurel,
+                                                          size: 24,
+                                                        ),
                                                 ),
-                                          icon: const Icon(
-                                            Icons.delete_outline,
-                                            size: 18,
-                                            color: Colors.red,
+                                                const SizedBox(width: 12),
+                                                // Product Name
+                                                Expanded(
+                                                  child: Text(
+                                                    product.title,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: AppColors
+                                                          .textAppBlack,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
+
+                                          // ID
+                                          Expanded(
+                                            child: Text(
+                                              product.id.substring(0, 8),
+                                              style: const TextStyle(
+                                                color: AppColors
+                                                    .textSecondaryColor,
+                                              ),
+                                            ),
+                                          ),
+
+                                          // Actual Price
+                                          Expanded(
+                                            child: Text(
+                                              '\$${product.actualPrice.toStringAsFixed(2)}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                                color: AppColors.textAppBlack,
+                                              ),
+                                            ),
+                                          ),
+
+                                          // Discount Price
+                                          Expanded(
+                                            child: Text(
+                                              product.discountPrice != null
+                                                  ? '\$${product.discountPrice!.toStringAsFixed(2)}'
+                                                  : '-',
+                                              style: const TextStyle(
+                                                color: AppColors
+                                                    .textSecondaryColor,
+                                              ),
+                                            ),
+                                          ),
+
+                                          // Stock
+                                          Expanded(
+                                            child: Text(
+                                              '${product.stock}',
+                                              style: TextStyle(
+                                                color: product.stock > 20
+                                                    ? Colors.green
+                                                    : product.stock > 5
+                                                    ? Colors.orange
+                                                    : Colors.red,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+
+                                          // Views
+                                          Expanded(
+                                            child: Text(
+                                              '${product.viewCount}',
+                                              style: const TextStyle(
+                                                color: AppColors
+                                                    .textSecondaryColor,
+                                              ),
+                                            ),
+                                          ),
+
+                                          // Rating
+                                          Expanded(
+                                            child: product.ratingCount > 0
+                                                ? Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.star,
+                                                        size: 14,
+                                                        color: Colors.amber,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        '${product.averageRating.toStringAsFixed(1)} (${product.ratingCount})',
+                                                        style: const TextStyle(
+                                                          color: AppColors
+                                                              .textSecondaryColor,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  )
+                                                : const Text(
+                                                    '—',
+                                                    style: TextStyle(
+                                                      color: AppColors
+                                                          .textSecondaryColor,
+                                                    ),
+                                                  ),
+                                          ),
+
+                                          // Date
+                                          Expanded(
+                                            child: Text(
+                                              DateFormat(
+                                                'dd MMM yyyy hh:mm a',
+                                              ).format(product.createdAt),
+                                              style: const TextStyle(
+                                                color: AppColors
+                                                    .textSecondaryColor,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+
+                                          // Actions
+                                          SizedBox(
+                                            width: 140,
+                                            child: Row(
+                                              children: [
+                                                IconButton(
+                                                  onPressed:
+                                                      productsState.isUpdating
+                                                      ? null
+                                                      : () async {
+                                                          final request = UpdateProductRequest(
+                                                            id: product.id,
+                                                            title:
+                                                                product.title,
+                                                            description: product
+                                                                .description,
+                                                            actualPrice: product
+                                                                .actualPrice,
+                                                            discountPrice: product
+                                                                .discountPrice,
+                                                            stock:
+                                                                product.stock,
+                                                            categoryId: product
+                                                                .categoryId,
+                                                            promoId:
+                                                                product.promoId,
+                                                            sizes:
+                                                                product.sizes,
+                                                            colors:
+                                                                product.colors,
+                                                            colorCodes: product
+                                                                .colorCodes,
+                                                            newImages: [],
+                                                            existingImageUrls:
+                                                                product
+                                                                    .imageUrls,
+                                                            isActive: !product
+                                                                .isActive,
+                                                            facilities: product
+                                                                .facilities,
+                                                          );
+
+                                                          final success = await ref
+                                                              .read(
+                                                                productsProvider
+                                                                    .notifier,
+                                                              )
+                                                              .updateProduct(
+                                                                request,
+                                                              );
+
+                                                          if (success &&
+                                                              mounted) {
+                                                            ScaffoldMessenger.of(
+                                                              context,
+                                                            ).showSnackBar(
+                                                              SnackBar(
+                                                                content: Text(
+                                                                  product.isActive
+                                                                      ? 'Product hidden successfully!'
+                                                                      : 'Product published successfully!',
+                                                                ),
+                                                                backgroundColor:
+                                                                    AppColors
+                                                                        .primaryLaurel,
+                                                              ),
+                                                            );
+                                                          }
+                                                        },
+                                                  icon: Icon(
+                                                    product.isActive
+                                                        ? Icons.visibility
+                                                        : Icons.visibility_off,
+                                                    size: 18,
+                                                    color: product.isActive
+                                                        ? Colors.green
+                                                        : Colors.orange,
+                                                  ),
+                                                  tooltip: product.isActive
+                                                      ? 'Hide Product'
+                                                      : 'Publish Product',
+                                                ),
+                                                IconButton(
+                                                  onPressed: () =>
+                                                      confirmAndSendProductNotification(
+                                                        context,
+                                                        product,
+                                                      ),
+                                                  icon: const Icon(
+                                                    Icons
+                                                        .notifications_active_outlined,
+                                                    size: 18,
+                                                    color: Colors.blueAccent,
+                                                  ),
+                                                  tooltip: 'Notify all users',
+                                                ),
+                                                // IconButton(
+                                                // onPressed: () => context.go(
+                                                //   '${RouteEndpoint.products}/edit/${product.id}',
+                                                // ),
+                                                //   icon: const Icon(
+                                                //     Icons.edit_outlined,
+                                                //     size: 18,
+                                                //     color: AppColors.primaryLaurel,
+                                                //   ),
+                                                // ),
+                                                IconButton(
+                                                  onPressed:
+                                                      productsState.isDeleting
+                                                      ? null
+                                                      : () => _showDeleteDialog(
+                                                          context,
+                                                          product.id,
+                                                        ),
+                                                  icon: const Icon(
+                                                    Icons.delete_outline,
+                                                    size: 18,
+                                                    color: Colors.red,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  );
+                                },
                               ),
                             ),
-                          );
-                        },
+                        ],
                       ),
                     ),
-                ],
+                  ),
+                ),
               ),
             ),
           ),
