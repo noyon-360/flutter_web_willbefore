@@ -93,9 +93,16 @@ class AuthProvider extends StateNotifier<AuthState> {
       // null right after startup even when a valid session exists. Waiting
       // for the first `authStateChanges` event avoids bouncing an already
       // logged-in user to the login screen on every page load.
-      final user = await _authRepository.authStateChanges.first;
+      // Timeouts: some mobile/in-app browsers lack IndexedDB or have flaky
+      // networks, which would otherwise leave the app on the spinner forever.
+      // On timeout the catch below falls through to the login screen.
+      final user = await _authRepository.authStateChanges.first.timeout(
+        const Duration(seconds: 8),
+      );
       if (user != null) {
-        final role = await _authRepository.getUserRole(user.uid);
+        final role = await _authRepository
+            .getUserRole(user.uid)
+            .timeout(const Duration(seconds: 10));
         if (!UserRoles.isStaff(role)) {
           await _authRepository.logout();
           if (!mounted) return;
